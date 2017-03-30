@@ -1,0 +1,264 @@
+# depslib dependency file v1.0
+1469435652 source:/home/jack/cpp_proj/dooqu_server/src/ddz/ddz_desk.cpp
+	<cstdlib>
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/ddz_desk.h
+	<boost/thread/recursive_mutex.hpp>
+	<boost/noncopyable.hpp>
+	<set>
+	"poker_info.h"
+	"../service/game_client.h"
+	"../service/char_key_op.h"
+	"../service/tick_count.h"
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/poker_info.h
+
+1479398913 /home/jack/cpp_proj/dooqu_server/src/service/game_client.h
+	<iostream>
+	<boost/thread/recursive_mutex.hpp>
+	"../net/tcp_client.h"
+	"game_info.h"
+	"command.h"
+	"command_dispatcher.h"
+	"tick_count.h"
+	"post_monitor.h"
+
+1479404583 /home/jack/cpp_proj/dooqu_server/src/net/tcp_client.h
+	<cstdarg>
+	<string>
+	<boost/bind.hpp>
+	<boost/asio.hpp>
+	<boost/thread/recursive_mutex.hpp>
+	<boost/pool/singleton_pool.hpp>
+	<boost/noncopyable.hpp>
+	"service_error.h"
+	"threads_lock_status.h"
+
+1469435440 /home/jack/cpp_proj/dooqu_server/src/net/service_error.h
+
+1487778129 /home/jack/cpp_proj/dooqu_server/src/net/threads_lock_status.h
+	<map>
+	<thread>
+
+1469435547 /home/jack/cpp_proj/dooqu_server/src/service/game_info.h
+	<boost/noncopyable.hpp>
+
+1469435547 /home/jack/cpp_proj/dooqu_server/src/service/command.h
+	<vector>
+	<iostream>
+	<boost/noncopyable.hpp>
+
+1479209062 /home/jack/cpp_proj/dooqu_server/src/service/command_dispatcher.h
+	<map>
+	<cstring>
+	"command.h"
+	"service_error.h"
+	"char_key_op.h"
+
+1469435547 /home/jack/cpp_proj/dooqu_server/src/service/service_error.h
+	"../net/service_error.h"
+
+1469435547 /home/jack/cpp_proj/dooqu_server/src/service/tick_count.h
+	<boost/noncopyable.hpp>
+	"boost/date_time/posix_time/posix_time.hpp"
+
+1469435547 /home/jack/cpp_proj/dooqu_server/src/service/post_monitor.h
+	"tick_count.h"
+
+1469435547 /home/jack/cpp_proj/dooqu_server/src/service/char_key_op.h
+	<cstring>
+
+1478756030 source:/home/jack/cpp_proj/dooqu_server/src/ddz/ddz_game_info.cpp
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/ddz_game_info.h
+	"../service/game_info.h"
+	"ddz_desk.h"
+	"../service/char_key_op.h"
+	"../service/tick_count.h"
+	<set>
+
+1479209104 source:/home/jack/cpp_proj/dooqu_server/src/ddz/ddz_plugin.cpp
+	<assert.h>
+	<stdio.h>
+	"ddz_plugin.h"
+	"../service/game_service.h"
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/ddz_plugin.h
+	<iostream>
+	<cstring>
+	<vector>
+	<boost/asio.hpp>
+	<boost/pool/singleton_pool.hpp>
+	<boost/date_time/posix_time/posix_time.hpp>
+	"../service/game_plugin.h"
+	"ddz_desk.h"
+	"poker_parser.h"
+	"poker_info.h"
+	"poker_finder.h"
+	"ddz_game_info.h"
+	"service_error.h"
+
+1487949976 /home/jack/cpp_proj/dooqu_server/src/service/game_plugin.h
+	<iostream>
+	<map>
+	<boost/thread/recursive_mutex.hpp>
+	<boost/asio/deadline_timer.hpp>
+	<boost/noncopyable.hpp>
+	"command_dispatcher.h"
+	"game_client.h"
+	"char_key_op.h"
+	"game_zone.h"
+	"http_request.h"
+
+1487777476 /home/jack/cpp_proj/dooqu_server/src/service/game_zone.h
+	<iostream>
+	<cstring>
+	<deque>
+	<set>
+	<vector>
+	<thread>
+	<boost/asio.hpp>
+	<boost/thread/recursive_mutex.hpp>
+	<boost/noncopyable.hpp>
+	"tick_count.h"
+	"game_service.h"
+
+1487776602 /home/jack/cpp_proj/dooqu_server/src/service/game_service.h
+	<set>
+	<queue>
+	<list>
+	<map>
+	<thread>
+	<boost/thread/mutex.hpp>
+	<boost/thread/recursive_mutex.hpp>
+	<boost/asio.hpp>
+	<boost/pool/singleton_pool.hpp>
+	"../net/tcp_server.h"
+	"../service/command_dispatcher.h"
+	"game_client.h"
+	"char_key_op.h"
+	"service_error.h"
+	"http_request.h"
+
+1487781024 /home/jack/cpp_proj/dooqu_server/src/net/tcp_server.h
+	<map>
+	<vector>
+	<thread>
+	<boost/asio.hpp>
+	<boost/bind.hpp>
+	<boost/thread/recursive_mutex.hpp>
+	<boost/noncopyable.hpp>
+	"tcp_client.h"
+
+1487779315 /home/jack/cpp_proj/dooqu_server/src/service/http_request.h
+	<iostream>
+	<istream>
+	<ostream>
+	<string>
+	<boost/asio.hpp>
+	<boost/bind.hpp>
+	<boost/function.hpp>
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/poker_parser.h
+	"poker_info.h"
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/poker_finder.h
+	<cstdlib>
+	<cstring>
+	<set>
+	<map>
+	<vector>
+	<assert.h>
+	"poker_info.h"
+	"../service/char_key_op.h"
+
+1469435652 /home/jack/cpp_proj/dooqu_server/src/ddz/service_error.h
+	"../service/service_error.h"
+
+1469435652 source:/home/jack/cpp_proj/dooqu_server/src/ddz/poker_finder.cpp
+	<algorithm>
+	<boost/shared_ptr.hpp>
+	<boost/bind.hpp>
+	<set>
+	<iterator>
+	<memory>
+	<assert.h>
+
+1469435652 source:/home/jack/cpp_proj/dooqu_server/src/ddz/poker_info.cpp
+
+1469435652 source:/home/jack/cpp_proj/dooqu_server/src/ddz/poker_parser.cpp
+	<cstring>
+
+1487779637 source:/home/jack/cpp_proj/dooqu_server/src/main.cpp
+	"service/game_service.h"
+	"service/game_zone.h"
+	"ddz/ddz_plugin.h"
+	"ask/ask_plugin.h"
+
+1479460708 source:/home/jack/cpp_proj/dooqu_server/src/net/tcp_client.cpp
+	"tcp_server.h"
+	"threads_lock_status.h"
+
+1487777858 source:/home/jack/cpp_proj/dooqu_server/src/net/tcp_server.cpp
+
+1469435547 source:/home/jack/cpp_proj/dooqu_server/src/service/command.cpp
+	<cstring>
+
+1479460775 source:/home/jack/cpp_proj/dooqu_server/src/service/command_dispatcher.cpp
+	"game_client.h"
+
+1479460672 source:/home/jack/cpp_proj/dooqu_server/src/service/game_client.cpp
+
+1487779366 source:/home/jack/cpp_proj/dooqu_server/src/service/game_plugin.cpp
+	"game_service.h"
+	"service_error.h"
+	<cstring>
+	<boost/property_tree/ptree.hpp>
+	<boost/property_tree/xml_parser.hpp>
+	"../net/threads_lock_status.h"
+
+1487776643 source:/home/jack/cpp_proj/dooqu_server/src/service/game_service.cpp
+	"game_plugin.h"
+	"game_zone.h"
+
+1479461311 source:/home/jack/cpp_proj/dooqu_server/src/service/game_zone.cpp
+	<functional>
+
+1469435547 source:/home/jack/cpp_proj/dooqu_server/src/service/post_monitor.cpp
+
+1479315104 source:/home/jack/cpp_proj/dooqu_server/src/ask/ask_plugin.cpp
+
+1479221215 /home/jack/cpp_proj/dooqu_server/src/ask/ask_plugin.h
+	<boost/thread/recursive_mutex.hpp>
+	"../service/game_plugin.h"
+	"ask_zone.h"
+	"ask_room.h"
+	"ask_game_info.h"
+
+1469439313 /home/jack/cpp_proj/dooqu_server/src/ask/ask_zone.h
+	<vector>
+	"../service/game_zone.h"
+	"questions.h"
+
+1479292489 /home/jack/cpp_proj/dooqu_server/src/ask/questions.h
+	"mysql_driver.h"
+	"mysql_connection.h"
+	"cppconn/statement.h"
+	"cppconn/exception.h"
+	<vector>
+	<boost/thread/mutex.hpp>
+	<boost/random.hpp>
+
+1479222188 /home/jack/cpp_proj/dooqu_server/src/ask/ask_room.h
+	<vector>
+	<boost/thread/recursive_mutex.hpp>
+	"../service/game_client.h"
+	"questions.h"
+	"../service/tick_count.h"
+
+1479220759 /home/jack/cpp_proj/dooqu_server/src/ask/ask_game_info.h
+	"../service/game_info.h"
+	"ask_room.h"
+
+1487778105 source:/home/jack/cpp_proj/dooqu_server/src/net/threads_lock_status .cpp
+
