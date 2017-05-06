@@ -12,18 +12,20 @@ namespace dooqu_service
 		}
 
 
-		game_plugin* game_service::load_plugin(game_plugin* game_plugin, char* zone_id)
+		int game_service::load_plugin(game_plugin* game_plugin, char* zone_id, char** errorMsg)
 		{
 			if (game_plugin == NULL || game_plugin->game_id() == NULL || game_plugin->game_service_ != this)
 			{
-                dooqu_service::util::print_error_info("plugin not created, argument error.");
-                return NULL;
+                //dooqu_service::util::print_error_info("plugin not created, argument error.");
+                (*errorMsg) = "argument error.";
+                return -1;
 			}
 
             if(game_plugin->is_onlined_ || game_plugin->clients()->size() > 0)
             {
-                dooqu_service::util::print_error_info("plugin {%s} is in using.", game_plugin->game_id());
-                return NULL;
+                //dooqu_service::util::print_error_info("plugin {%s} is in using.", game_plugin->game_id());
+                (*errorMsg) = "plugin is in using.";
+                return -2;
             }
 
 			__lock__(this->plugins_mutex_, "create_plugin");
@@ -32,8 +34,9 @@ namespace dooqu_service
 
 			if (curr_plugin != this->plugins_.end())
 			{
-                dooqu_service::util::print_error_info("plugin's id {%s} is in use.", game_plugin->game_id());
-				return NULL;
+                //dooqu_service::util::print_error_info("plugin's id {%s} is in use.", game_plugin->game_id());
+                (*errorMsg) = "plugin is in using.";
+				return -2;
 			}
 
 			this->plugins_[game_plugin->game_id()] = game_plugin;
@@ -51,10 +54,9 @@ namespace dooqu_service
 				{
 					game_zone* zone = game_plugin->on_create_zone(zone_id);
 
-					if (this->is_running_)
+					if (this->is_running_ && zone != NULL)
 					{
 						zone->load();
-
 						//为这个分区创建工作者线程
 						//this->create_worker_thread();
 					}
@@ -68,7 +70,7 @@ namespace dooqu_service
 				game_plugin->load();
 			}
 
-			return game_plugin;
+			return 1;
 		}
 
 
@@ -249,9 +251,9 @@ namespace dooqu_service
 			}
 			else
 			{
-                                __lock__(this->destroy_list_mutex_, "game_service::on_client_leave::destroy_list_mutext");
+                __lock__(this->destroy_list_mutex_, "game_service::on_client_leave::destroy_list_mutext");
 				this->client_list_for_destroy_.push_back(client);
-                                printf("INSERT client to destroy list.\n");
+                printf("INSERT client to destroy list.\n");
 			}
 		}
 

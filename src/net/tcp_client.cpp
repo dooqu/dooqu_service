@@ -13,7 +13,7 @@ namespace dooqu_service
 		tcp_client::tcp_client(io_service& ios)
 			: ios(ios),
 			t_socket(ios),
-			send_buffer_sequence_(3, buffer_stream(MAX_BUFFER_SIZE)),
+//			send_buffer_sequence_(3, buffer_stream(MAX_BUFFER_SIZE)),
 			read_pos_(-1), write_pos_(0),
 			buffer_pos(0),
 			available_(false)
@@ -30,20 +30,20 @@ namespace dooqu_service
 			if (this->available() == false)
 				return;
 
-            printf("read_from_client\n");
-
 			this->t_socket.async_read_some(boost::asio::buffer(this->p_buffer, tcp_client::MAX_BUFFER_SIZE - this->buffer_pos),
 				std::bind(&tcp_client::on_data_received, this, std::placeholders::_1, std::placeholders::_2));
 		}
 
 
+        //注意，send_buffer_sequence默认构造了一定的量，正常情况下是够用的，如果不够用，最大可创建
+        //MAX_BUFFER_SEQUENCE_SIZE个，但MAX_BUFFER_SEQUENCE_SIZE-8个，要引发复制构造函数，效率低下
 		bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
 		{
 			//如果当前的写入位置的指针指向存在一个可用的send_buffer，那么直接取这个集合；
 			if (write_pos_ < this->send_buffer_sequence_.size())
 			{
 				//得到当前的send_buffer
-				*buffer_alloc = &this->send_buffer_sequence_.at(this->write_pos_);
+				*buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
 				this->write_pos_++;
 
 				return true;
@@ -58,14 +58,17 @@ namespace dooqu_service
 					return false;
 				}
 
-				//将新申请的消息承载体推入队列
-				this->send_buffer_sequence_.push_back(buffer_stream(MAX_BUFFER_SIZE));
+                void* buffer_mem = boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::malloc();
+                buffer_stream* curr_buffer = new(buffer_mem) buffer_stream(MAX_BUFFER_SIZE);
+
+				//将新申请的消息承载体推入队列，注意插入的是栈类型，会引发复制构造函数,已经内建了n个
+				this->send_buffer_sequence_.push_back(curr_buffer);
 
 				//将写入指针指向下一个预置位置
 				this->write_pos_ = this->send_buffer_sequence_.size() - 1;
 
 				//得到当前的send_buffer/
-				*buffer_alloc = &this->send_buffer_sequence_.at(this->write_pos_);
+				*buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
 
 				this->write_pos_++;
 
@@ -144,7 +147,6 @@ namespace dooqu_service
 
 				this->is_data_sending_ = true;
 			}
-
 			//printf("END send\n");
 		}
 
@@ -160,7 +162,6 @@ namespace dooqu_service
 			if (error)
 			{
 				this->is_data_sending_ = false;
-				//std::cout << "send_handle error, returned." << std::endl;
 				return;
 			}
 
@@ -175,7 +176,7 @@ namespace dooqu_service
 
 			__lock__(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
 
-			buffer_stream* curr_buffer = &this->send_buffer_sequence_.at(this->read_pos_);
+			buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
 
 			if (read_pos_ >= (write_pos_ - 1))
 			{
@@ -188,7 +189,7 @@ namespace dooqu_service
 			{
 				read_pos_++;
 
-				buffer_stream* curr_buffer = &this->send_buffer_sequence_.at(this->read_pos_);
+				buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
 
 				if (curr_buffer->is_bye_signal())
 				{
@@ -203,6 +204,10 @@ namespace dooqu_service
 		}
 
 
+		/*
+		disconnect_when_io_end不直接对外提供调用，在状态锁放买你，外部调用一定要保障已经
+		调用了status_lock锁，防止死锁,因为在disconnect中对status_lock 进行了锁定
+		*/
 		void tcp_client::disconnect_when_io_end()
 		{
 			if (this->available() == false)
@@ -256,6 +261,16 @@ namespace dooqu_service
 		tcp_client::~tcp_client()
 		{
 			printf("~game_client.\n");
+
+			__lock__(this->send_buffer_lock_, "tcp_client::~tcp_client::lock");
+
+			for(std::vector<buffer_stream*>::iterator e = this->send_buffer_sequence_.begin(); e != this->send_buffer_sequence_.end(); ++e)
+			{
+                (*e)->~buffer_stream();
+                boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::free(*e);
+			}
+
+			this->send_buffer_sequence_.clear();
 		}
 	}
 }

@@ -27,7 +27,6 @@ namespace dooqu_service
 
 		void game_client::on_data_received(const boost::system::error_code& error, size_t bytes_received)
 		{
-            printf("game_client::on_data_received.\n");
 			//receive_handle要在工作者现成上执行；
 			//在其他工作者线程上，同一时间不肯定不会有receive_handle的调用，因为receive本质是一个串行的动作；
 			//但是! 可能因为逻辑需要、在其他工作者线程上调用disconnect函数，所以必须要同步status；
@@ -63,7 +62,7 @@ namespace dooqu_service
 						this->on_error(error_result);
 					}
 
-					tcp_client::on_data_received(error, bytes_received);
+					this->tcp_client::on_data_received(error, bytes_received);
 				}
 			}
 			else

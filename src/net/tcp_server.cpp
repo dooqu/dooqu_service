@@ -99,10 +99,10 @@ namespace dooqu_service
 
 				for (int i = 0; i < this->worker_threads_.size(); i++)
 				{
-                    printf("waiting thread {%d} exiting...");
+                    printf("waiting thread {%d} exiting...\n");
 					this->worker_threads_.at(i)->join();
-					printf("\r");
-					dooqu_service::util::print_success_info("worker thread has exited, id={%d}.", this->worker_threads_.at(i)->get_id());
+
+					dooqu_service::util::print_success_info("worker thread has exited, id={%d}.\n", this->worker_threads_.at(i)->get_id());
 				}
 
 				//所有线程上的事件都已经执行完毕后， 安全的停止io_service;

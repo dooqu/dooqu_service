@@ -45,9 +45,9 @@ lock(data_sequence_lock_);
 
 #include <cstdarg>
 #include <string>
+#include <iostream>
 #include <mutex>
 #include <functional>
-//#include <boost/bind.hpp>
 #include <boost/asio.hpp>
 #include <boost/pool/singleton_pool.hpp>
 #include <boost/noncopyable.hpp>
@@ -97,24 +97,33 @@ namespace dooqu_service
 		using namespace boost::asio;
 		using namespace boost::asio::ip;
 
-		class buffer_stream
+
+
+		class buffer_stream : boost::noncopyable
 		{
 		protected:
 			std::vector<char> buffer_;
 			int size_;
-		public:
 
+		public:
 			//从buffer_stream中向外读取
 			char* read()
 			{
 				return &*this->buffer_.begin();
 			}
 
+			//设定buffer的默认size 和默认值
 			buffer_stream(size_t size) : buffer_(size, 0)
 			{
 				this->size_ = size;
 				//printf("->create buffer_stream.\n");
 			}
+
+			virtual ~buffer_stream()
+			{
+                std::cout << "~buffer_stream" << std::endl;
+			}
+
 
 			int size()
 			{
@@ -172,9 +181,9 @@ namespace dooqu_service
 		public:
 			enum
 			{
-				MAX_BUFFER_SIZE = 65,
+				MAX_BUFFER_SIZE = 64,
 				MAX_BUFFER_SEQUENCE_SIZE = 128,
-				MAX_BUFFER_SIZE_DOUBLE_TIMES = 4
+				MAX_BUFFER_SIZE_DOUBLE_TIMES = 8
 			};
 
 		protected:
@@ -186,7 +195,7 @@ namespace dooqu_service
 			std::recursive_mutex status_lock_;
 
 			//发送数据缓冲区
-			std::vector<buffer_stream> send_buffer_sequence_;
+			std::vector<buffer_stream*> send_buffer_sequence_;
 
 			//数据锁
 			std::recursive_mutex send_buffer_lock_;

@@ -185,7 +185,7 @@ namespace dooqu_service
 
 
 		void command_dispatcher::on_client_data(game_client* client, char* data)
-		{printf(data);
+		{
 			__lock__(client->commander_mutex_, "command_dispatcher::on_client_data");
 
 			client->commander_.reset(data);

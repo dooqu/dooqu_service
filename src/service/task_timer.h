@@ -17,22 +17,30 @@ namespace dooqu_service
     namespace service
     {
 		//继承deadline_timer，并按照需求，增加一个标示最后激活的字段。
-		class deadline_timer_ex : public boost::asio::deadline_timer
+		class task_timer : public boost::asio::deadline_timer
 		{
+		protected:
+            bool cancel_enabled_;
 		public:
 			tick_count last_actived_time;
-			deadline_timer_ex(io_service& ios) : deadline_timer(ios){}
-			virtual ~deadline_timer_ex(){ printf("~timer\n"); };
+			task_timer(io_service& ios, bool cancel_enabled = false) : deadline_timer(ios){ this->cancel_enabled_ = cancel_enabled; }
+			virtual ~task_timer(){ printf("~timer\n"); };
+
+			bool is_cancel_eanbled()
+			{
+                return this->cancel_enabled_;
+			}
 		};
 
 
-        class task_timer
+        class async_task
         {
 
         public:
-            task_timer(io_service& ios);
-            virtual ~task_timer();
-            void queue_task(std::function<void(void)> callback_handle, int sleep_duration);
+            async_task(io_service& ios);
+            virtual ~async_task();
+            task_timer* queue_task(std::function<void(void)> callback_handle, int millisecs_wait, bool cancel_enabled = false);
+            bool cancel_task(task_timer* timer);
 
         protected:
             io_service& io_service_;
@@ -44,16 +52,16 @@ namespace dooqu_service
 
             //存放定时器的双向队列
             //越是靠近队列前部的timer越活跃，越是靠近尾部的timer越空闲
-            std::deque<deadline_timer_ex*> free_timers_;
+            std::deque<task_timer*> free_timers_;
 
-            std::set<deadline_timer_ex*> working_timers_;
+            std::set<task_timer*> working_timers_;
 
             //timer队列池的状态锁
             std::recursive_mutex free_timers_mutex_;
 
             std::recursive_mutex working_timers_mutex_;
 
-            void task_handle(const boost::system::error_code& error, deadline_timer_ex* timer_, std::function<void(void)> callback_handle);
+            void task_handle(const boost::system::error_code& error, task_timer* timer_, std::function<void(void)> callback_handle);
 
         };
     }

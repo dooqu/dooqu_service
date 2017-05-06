@@ -76,7 +76,7 @@ namespace dooqu_service
 		public:
 			game_service(unsigned int port);
 			virtual ~game_service();
-			game_plugin* load_plugin(game_plugin* game_plugin, char* zone_id);
+			int load_plugin(game_plugin* game_plugin, char* zone_id, char** errorMsg = NULL);
 			bool unload_plugin(game_plugin* game_plugin, int seconds_wait_for_complete = 0);
 			game_plugin_map* get_plugins(){ return &this->plugins_; }
 			http_request* get_http_request();
