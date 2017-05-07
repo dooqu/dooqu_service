@@ -152,7 +152,7 @@ namespace dooqu_service
 				//如果走到这个分支，说明game_server已经调用了stop，停止了服务；
 				//但因为start_accept，已经提前投递了N个game_client
 				//所以这里返回要对game_client进行销毁处理
-				printf("tcp_server.accept_handle canceled:%s\n", error.message().c_str());
+				//printf("tcp_server.accept_handle canceled:%s\n", error.message().c_str());
 
 				this->on_destroy_client(client);
 			}
@@ -161,6 +161,7 @@ namespace dooqu_service
 
 		tcp_server::~tcp_server()
 		{
+            //boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::release_memory();
 			for (int i = 0; i < worker_threads_.size(); i++)
 			{
 				delete worker_threads_.at(i);

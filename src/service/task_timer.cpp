@@ -28,7 +28,7 @@ namespace dooqu_service
                 }
                 this->working_timers_.clear();
             }
-            printf("~async_task middle\n");
+
 
             {
                 __lock__(this->free_timers_mutex_, "~game_zone::free_timers_mutex");
@@ -45,10 +45,6 @@ namespace dooqu_service
                 this->free_timers_.clear();
             }
 
-            //boost::singleton_pool<task_timer, sizeof(task_timer)>::release_memory();
-
-            printf("~async_task ok\n");
-            //dtor
         }
 
 
@@ -200,7 +196,7 @@ namespace dooqu_service
             //delete timer_;
             //timer_->~timer();
             //boost::singleton_pool<timer, sizeof(timer)>::free(timer_);
-            printf("timer callback was canceld, timer has deleted.\n");
+            //printf("timer callback was canceld, timer has deleted.\n");
         }
 
     }

@@ -351,12 +351,12 @@ namespace dooqu_service
 		{
 			if (this->gameid_ != NULL)
 			{
-				delete this->gameid_;
+				delete [] this->gameid_;
 			}
 
 			if (this->title_ != NULL)
 			{
-				delete this->title_;
+				delete [] this->title_;
 			}
 
 			printf("game_plugin destroyed.\n");

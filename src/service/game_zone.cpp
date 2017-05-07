@@ -99,7 +99,7 @@ namespace dooqu_service
 
 					if (game_zone::LOG_TIMERS_INFO)
 					{
-						printf("##################>new timer");
+						//printf("##################>new timer");
 					}
 				}
 
@@ -177,7 +177,7 @@ namespace dooqu_service
 			//delete timer_;
 			//timer_->~timer();
 			//boost::singleton_pool<timer, sizeof(timer)>::free(timer_);
-			printf("timer callback was canceld, timer has deleted.\n");
+			//printf("timer callback was canceld, timer has deleted.\n");
 		}
 
 

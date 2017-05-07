@@ -141,6 +141,8 @@ namespace dooqu_service
 			if (read_pos_ == -1)
 			{
 				read_pos_++;
+
+				//std::cout << curr_buffer->read() << std::endl;
 				//只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
 				boost::asio::async_write(this->t_socket, boost::asio::buffer(curr_buffer->read(), curr_buffer->size()),
 					std::bind(&tcp_client::send_handle, this, std::placeholders::_1));
@@ -218,14 +220,14 @@ namespace dooqu_service
 			//如果有要发送的数据，那么新申请一个离开的信号数据包，并加到数据发送队列中
 			if (this->read_pos_ != -1)
 			{
-				buffer_stream* curr_buffer = NULL;
-				bool alloc_ret = this->alloc_available_buffer(&curr_buffer);
-
-				if (alloc_ret)
-				{
-					curr_buffer->set_bye_signal();
-					return;
-				}
+//				buffer_stream* curr_buffer = NULL;
+//				bool alloc_ret = this->alloc_available_buffer(&curr_buffer);
+//
+//				if (alloc_ret)
+//				{
+//					curr_buffer->set_bye_signal();
+//					return;
+//				}
 			}
 
 			//如果没有要发送的数据，那么立即断开
@@ -260,12 +262,12 @@ namespace dooqu_service
 
 		tcp_client::~tcp_client()
 		{
-			printf("~game_client.\n");
+			//printf("~game_client.\n");
 
 			__lock__(this->send_buffer_lock_, "tcp_client::~tcp_client::lock");
 
 			for(std::vector<buffer_stream*>::iterator e = this->send_buffer_sequence_.begin(); e != this->send_buffer_sequence_.end(); ++e)
-			{
+            {
                 (*e)->~buffer_stream();
                 boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::free(*e);
 			}

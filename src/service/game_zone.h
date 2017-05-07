@@ -34,7 +34,7 @@ namespace dooqu_service
 		public:
 			tick_count last_actived_time;
 			timer(io_service& ios) : deadline_timer(ios){}
-			virtual ~timer(){ printf("~timer\n"); };
+			virtual ~timer(){  };
 		};
 
 

@@ -121,7 +121,7 @@ namespace dooqu_service
 
 			virtual ~buffer_stream()
 			{
-                std::cout << "~buffer_stream" << std::endl;
+                //std::cout << "~buffer_stream" << std::endl;
 			}
 
 

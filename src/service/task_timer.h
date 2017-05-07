@@ -24,7 +24,7 @@ namespace dooqu_service
 		public:
 			tick_count last_actived_time;
 			task_timer(io_service& ios, bool cancel_enabled = false) : deadline_timer(ios){ this->cancel_enabled_ = cancel_enabled; }
-			virtual ~task_timer(){ printf("~timer\n"); };
+			virtual ~task_timer(){  };
 
 			bool is_cancel_eanbled()
 			{
