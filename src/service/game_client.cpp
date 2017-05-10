@@ -27,6 +27,7 @@ namespace dooqu_service
 
 		void game_client::on_data_received(const boost::system::error_code& error, size_t bytes_received)
 		{
+            //printf("so->game_client::on_data_received.\n");
 			//receive_handle要在工作者现成上执行；
 			//在其他工作者线程上，同一时间不肯定不会有receive_handle的调用，因为receive本质是一个串行的动作；
 			//但是! 可能因为逻辑需要、在其他工作者线程上调用disconnect函数，所以必须要同步status；
@@ -44,6 +45,7 @@ namespace dooqu_service
 
 					if(error_result == -1) //-1是说明没有错误，只能是这个值，0都不可以
 					{
+                        this->tcp_client::on_data_received(error, bytes_received);
 						//此分支说明用户数据正常，需要继续接收用户数据；
 						//需要再次校验，防止语句执行至此，锁间断中间被其他线程disconnect掉；
 						if (this->available() == false)
@@ -61,8 +63,6 @@ namespace dooqu_service
 						this->available_ = false;
 						this->on_error(error_result);
 					}
-
-					this->tcp_client::on_data_received(error, bytes_received);
 				}
 			}
 			else

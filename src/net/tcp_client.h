@@ -181,9 +181,9 @@ namespace dooqu_service
 		public:
 			enum
 			{
-				MAX_BUFFER_SIZE = 64,
-				MAX_BUFFER_SEQUENCE_SIZE = 128,
-				MAX_BUFFER_SIZE_DOUBLE_TIMES = 8
+				MAX_BUFFER_SIZE = 128,
+				MAX_BUFFER_SEQUENCE_SIZE = 32,
+				MAX_BUFFER_SIZE_DOUBLE_TIMES = 4
 			};
 
 		protected:

@@ -136,6 +136,7 @@ namespace dooqu_service
 				return;
 			}
 
+			//printf("SEND: %s\n", curr_buffer->read());
 
 			//如果正在发送的索引为-1，说明空闲
 			if (read_pos_ == -1)
@@ -220,14 +221,14 @@ namespace dooqu_service
 			//如果有要发送的数据，那么新申请一个离开的信号数据包，并加到数据发送队列中
 			if (this->read_pos_ != -1)
 			{
-//				buffer_stream* curr_buffer = NULL;
-//				bool alloc_ret = this->alloc_available_buffer(&curr_buffer);
-//
-//				if (alloc_ret)
-//				{
-//					curr_buffer->set_bye_signal();
-//					return;
-//				}
+				buffer_stream* curr_buffer = NULL;
+				bool alloc_ret = this->alloc_available_buffer(&curr_buffer);
+
+				if (alloc_ret)
+				{
+					curr_buffer->set_bye_signal();
+					return;
+				}
 			}
 
 			//如果没有要发送的数据，那么立即断开

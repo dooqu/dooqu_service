@@ -16,7 +16,7 @@
 					<Add option="-std=c++11" />
 					<Add option="-g" />
 					<Add option="-fPIC" />
-					<Add directory="src/service" />
+					<Add directory="src" />
 				</Compiler>
 				<Linker>
 					<Add option="-lpthread" />
@@ -42,6 +42,7 @@
 					<Add option="-fPIC" />
 					<Add directory="src/net" />
 					<Add directory="src/service" />
+					<Add directory="src" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -52,6 +53,7 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="src/dooqu_service.h" />
 		<Unit filename="src/net/service_error.h" />
 		<Unit filename="src/net/tcp_client.cpp" />
 		<Unit filename="src/net/tcp_client.h" />

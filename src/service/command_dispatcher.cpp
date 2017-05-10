@@ -129,6 +129,7 @@ namespace dooqu_service
 		{
 			client->buffer_pos += bytes_received;
 
+			//防止意外，正常逻辑来说，收的字节数是可以控制的，不会产生缓冲区溢出
 			if (client->buffer_pos > tcp_client::MAX_BUFFER_SIZE)
 			{
 				client->write("ERR %d%c",  service_error::DATA_OUT_OF_BUFFER, NULL);
@@ -156,18 +157,33 @@ namespace dooqu_service
 					}
 				}
 
+				//如果是最后一个有效的命令字符
 				if (i == (client->buffer_pos - 1))
 				{
+                    //如果最后一个字符，不是命令的结束符号，那么当前命令还需要继续接收才完整
+                    //那么为了让接收的空间更富裕，如果当前命令是从半截开始，把这个命令向前串，拷贝到缓冲区的头部
 					if (client->buffer[i] != 0)
 					{
-						if ((client->buffer_pos - cmd_start_pos) >= tcp_client::MAX_BUFFER_SIZE)
+//						if ((client->buffer_pos - cmd_start_pos) >= tcp_client::MAX_BUFFER_SIZE)
+//						{
+//							client->write("ERR %d%c",  service_error::DATA_OUT_OF_BUFFER, NULL);
+//							printf("error->>");
+//							return service_error::DATA_OUT_OF_BUFFER;
+//						}
+                        //如果命令从0开始
+                        if(cmd_start_pos == 0)
+                        {
+                            //如果命令从头开始，那就没有拷贝的必要了,但要检查命令是否会越界
+                            //如果当前的命令从0开始，同时buffer_pos已经越界，那么关掉用的链接
+                            if(client->buffer_pos == tcp_client::MAX_BUFFER_SIZE)
+                            {
+                                client->write("ERR %d%c",  service_error::DATA_OUT_OF_BUFFER, NULL);
+                                return service_error::DATA_OUT_OF_BUFFER;
+                            }
+                        }
+						else
 						{
-							client->write("ERR %d%c",  service_error::DATA_OUT_OF_BUFFER, NULL);
-							return service_error::DATA_OUT_OF_BUFFER;
-						}
-
-						if (cmd_start_pos != 0)
-						{
+                            //如果命令不是从0开始， 那么为了给继续接受其余的数据疼出空间，要做一次向前串的拷贝
 							std::copy(client->buffer + cmd_start_pos, client->buffer + client->buffer_pos, client->buffer);
 							*next_receive_buffer_pos = client->buffer_pos -= cmd_start_pos;
 						}
@@ -187,6 +203,8 @@ namespace dooqu_service
 		void command_dispatcher::on_client_data(game_client* client, char* data)
 		{
 			__lock__(client->commander_mutex_, "command_dispatcher::on_client_data");
+
+			//printf("command_dispatcher::on_client_data:%s\n", data);
 
 			client->commander_.reset(data);
 
