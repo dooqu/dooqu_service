@@ -31,11 +31,11 @@ namespace dooqu_service
 		protected:
 			friend class tcp_client;
 
-			enum { MAX_ACCEPTION_NUM = 1 };
+			enum { MAX_ACCEPTION_NUM = 4 };
 			io_service io_service_;
 			io_service::work* work_mode_;
 			tcp::acceptor acceptor;
-			unsigned int port;
+			unsigned int port_;
 			bool is_running_;
 			bool is_accepting_;
 			thread_status_map threads_status_;

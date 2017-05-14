@@ -8,6 +8,7 @@
 #include "threads_lock_status.h"
 
 
+
 #define RESET   "\033[0m"
 #define BLACK   "\033[30m"      /* Black */
 #define RED     "\033[31m"      /* Red */
@@ -42,7 +43,9 @@
 //	thread_status::log("END->"#message)
 
 #define __lock__(state, message) \
-	std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
+    thread_status::instance()->log("START->"#message);\
+     std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
+	thread_status::instance()->log("END->"#message);
 
 
 

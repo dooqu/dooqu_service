@@ -21,7 +21,7 @@ namespace dooqu_service
 
 		game_client::~game_client()
 		{
-			//printf("game_client destroyed.\n");
+			printf("game_client destroyed.\n");
 		}
 
 

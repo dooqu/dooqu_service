@@ -30,7 +30,9 @@ namespace dooqu_service
 
 		class game_service : public command_dispatcher, public tcp_server
 		{
+		public:
 			typedef std::map<const char*, game_plugin*, char_key_op> game_plugin_map;
+			typedef std::list<game_plugin*> game_plugin_list;
 			typedef std::map<const char*, game_zone*, char_key_op> game_zone_map;
 			typedef std::set<game_client*> game_client_map;
 			typedef std::list<game_client*> game_client_destroy_list;
@@ -38,6 +40,7 @@ namespace dooqu_service
 		protected:
 			enum{ MAX_AUTH_SESSION_COUNT = 200 };
 			game_plugin_map plugins_;
+			game_plugin_list plugin_list_;
 			game_zone_map zones_;
 			game_client_map clients_;
 			game_client_destroy_list client_list_for_destroy_;
@@ -78,7 +81,7 @@ namespace dooqu_service
 			virtual ~game_service();
 			int load_plugin(game_plugin* game_plugin, char* zone_id, char** errorMsg = NULL);
 			bool unload_plugin(game_plugin* game_plugin, int seconds_wait_for_complete = 0);
-			game_plugin_map* get_plugins(){ return &this->plugins_; }
+			game_plugin_list* get_plugins(){ return &this->plugin_list_; }
 			http_request* get_http_request();
 			void free_http_request(http_request*);
 		};

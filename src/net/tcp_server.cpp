@@ -5,8 +5,8 @@ namespace dooqu_service
 	namespace net
 	{
 		tcp_server::tcp_server(unsigned int port) :
-			acceptor(io_service_, tcp::endpoint(tcp::v4(), port)),
-			port(port),
+			acceptor(io_service_),
+			port_(port),
 			is_running_(false),
 			is_accepting_(false)
 		{
@@ -48,6 +48,15 @@ namespace dooqu_service
 				this->on_init();
 
 				this->is_running_ = true;
+
+				if(acceptor.is_open() == false)
+				{
+                    tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), this->port_);
+                    acceptor.open(endpoint.protocol());
+                    //acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+                    acceptor.bind(endpoint);
+                    acceptor.listen();
+				}
 
 				//投递 {MAX_ACCEPTION_NUM} 个accept动作
 				for (int i = 0; i < MAX_ACCEPTION_NUM; i++)
@@ -105,8 +114,12 @@ namespace dooqu_service
 					dooqu_service::util::print_success_info("worker thread has exited, id={%d}.\n", this->worker_threads_.at(i)->get_id());
 				}
 
+				this->worker_threads_.clear();
 				//所有线程上的事件都已经执行完毕后， 安全的停止io_service;
 				this->io_service_.stop();
+
+				//重置io_service，以备后续可能的tcp_server.start()的再次调用。
+				this->io_service_.reset();
 
 				dooqu_service::util::print_success_info("main service has been stoped successfully.");
 			}

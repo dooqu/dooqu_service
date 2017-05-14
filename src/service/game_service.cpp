@@ -40,6 +40,7 @@ namespace dooqu_service
 			}
 
 			this->plugins_[game_plugin->game_id()] = game_plugin;
+			this->plugin_list_.push_back(game_plugin);
 
 			//如果传递的zoneid不为空，那么为游戏挂载游戏区
 			if (zone_id != NULL)
@@ -76,8 +77,17 @@ namespace dooqu_service
 
 		bool game_service::unload_plugin(game_plugin* plugin, int seconds_for_wait_compl)
 		{
-            if(plugin == NULL || plugin->game_id() == NULL)
+            if(plugin == NULL || plugin->game_id() == NULL || plugin->is_onlined() == false)
                 return false;
+
+            {
+                __lock__(this->plugins_mutex_, "game_service::unload_plugin::plugin_mutex_");
+
+                if(this->plugins_.erase(plugin->game_id()) <= 0)
+                    return false;
+
+                this->plugin_list_.remove(plugin);
+            }
 
             plugin->unload();
 
@@ -114,10 +124,10 @@ namespace dooqu_service
 			{
 				__lock__(this->plugins_mutex_, "game_servcie::on_init::plugin_mutex");
 				//加载所有的游戏逻辑
-				for (game_plugin_map::iterator curr_game = this->plugins_.begin();
-				curr_game != this->plugins_.end(); ++curr_game)
+				for (game_plugin_list::iterator curr_game = this->plugin_list_.begin();
+				curr_game != this->plugin_list_.end(); ++curr_game)
 				{
-					(*curr_game).second->load();
+					(*curr_game)->load();
 				}
 			}
 		}
@@ -154,10 +164,10 @@ namespace dooqu_service
 			{
 				__lock__(this->plugins_mutex_, "game_service::on_stop::plugins_mutex");
 				//停止所有的游戏逻辑
-				for (game_plugin_map::iterator curr_game = this->plugins_.begin();
-				curr_game != this->plugins_.end(); ++curr_game)
+				for (game_plugin_list::iterator curr_game = this->plugin_list_.begin();
+				curr_game != this->plugin_list_.end(); ++curr_game)
 				{
-					(*curr_game).second->unload();
+					(*curr_game)->unload();
 				}
 			}
 
@@ -324,11 +334,11 @@ namespace dooqu_service
 				if (timeout_count.elapsed() > 60 * 1000)
 				{
 					__lock__(this->plugins_mutex_, "game_service::on_check_timeout_clients::plugins_mutex");
-					for (game_plugin_map::iterator curr_game = this->get_plugins()->begin();
+					for (game_plugin_list::iterator curr_game = this->get_plugins()->begin();
 					curr_game != this->get_plugins()->end();
 						++curr_game)
 					{
-						(*curr_game).second->on_update_timeout_clients();
+						(*curr_game)->on_update_timeout_clients();
 					}
 
 					timeout_count.restart();
@@ -359,19 +369,25 @@ namespace dooqu_service
 
 		void game_service::begin_auth(game_plugin* plugin, game_client* client, command* cmd)
 		{
-			if (this->http_request_working_.size() > MAX_AUTH_SESSION_COUNT)
-			{
-				client->disconnect(service_error::LOGIN_CONCURENCY_LIMIT);
-				return;
-			}
+//            void* http_req_mem = this->get_http_request();
+//			if (http_req_mem == NULL)
+//			{
+//				client->disconnect(service_error::LOGIN_CONCURENCY_LIMIT);
+//				return;
+//			}
 
+            //http_request* request = new(request_mem)http_request(this->get_io_service(),
+			//	"127.0.0.1",
+			//	"/auth.aspx",
+			//	boost::bind(&game_service::end_auth, this, _1, _2, _3, (http_request*)request_mem, plugin, client));
 			//如果需要不请求http server请拿掉此注释
 
 
 			//分配http_request的对象内存
 			//void* request_mem = this->get_http_request();
 
-			this->end_auth(boost::asio::error::eof, 200, std::string(), NULL, plugin, client);
+			this->io_service_.post(boost::bind(&game_service::end_auth, this, boost::asio::error::eof, 200, std::string(), (http_request*)NULL, plugin, client));
+			//this->end_auth(boost::asio::error::eof, 200, std::string(), NULL, plugin, client);
 			//http_request* request = new(request_mem)http_request(this->get_io_service(),
 			//	"127.0.0.1",
 			//	"/auth.aspx",
@@ -381,55 +397,43 @@ namespace dooqu_service
 
 		void game_service::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, http_request* request, game_plugin* plugin, game_client* client)
 		{
-			do
-			{
-				if (this->is_running_ == false || plugin->is_onlined() == false)
-					break;
-
-				int ret = service_error::OK;
-
-				{
-					//对登录的用户列表进行上锁
-					__lock__(this->clients_mutex_, "game_service::end_auth::clients_mutex");
-					game_client_map::iterator finder = this->clients_.find(client);
-
-					//client 在另外一个线程已经被销毁，超时了，或者主动离开等等情况。
-					//本质上就是依靠this->clients_来判断当前的client对象是否已经被销毁了。
-					if (finder == this->clients_.end())
-						break;
-
-					//用户登录动作完成，从排队用户中删除。
-					this->clients_.erase(client);
-
-					if (client->available() == false)
-						break;
-				}
-
-				//http ok
-				if (code == boost::asio::error::eof && status_code == 200)
-				{
-					ret = plugin->auth_client(client, response_string);
-				}
-				else
-				{
-					printf("http authentication server error.\n");
-					ret = service_error::LOGIN_SERVICE_ERROR;
-				}
-
-				if (ret != service_error::OK)
-				{
-					printf("disconnect client because auth error.\n");
-
-					client->disconnect(ret);
-					//client->write("ERR %d%c", ret, NULL);
-					//client->disconnect_when_io_end();
-				}
-
-				break;
-
-			} while (true);
-
 			//this->free_http_request(request);
+
+            if (this->is_running_ == false)
+                return;
+
+            int ret = service_error::OK;
+
+            {
+                //对登录的用户列表进行上锁
+                __lock__(this->clients_mutex_, "game_service::end_auth::clients_mutex");
+
+                //如果clients_中没有找到client，那么返回，说明client已经销毁了
+                if(this->clients_.erase(client) <= 0)
+                    return;
+
+                if (client->available() == false)
+                    return;
+
+                //http ok
+                if (code == boost::asio::error::eof && status_code == 200)
+                {
+                    __lock__(this->plugins_mutex_, "game_service::end_auth::plugin_mutex");
+                    //上锁，因为plugin有可能已经销毁
+                    ret = plugin->auth_client(client, response_string);
+                }
+                else
+                {
+                    printf("http authentication server error.\n");
+                    ret = service_error::LOGIN_SERVICE_ERROR;
+                }
+
+                if (ret != service_error::OK)
+                {
+                    printf("disconnect client because auth error.\n");
+                    client->disconnect(ret);
+                }
+            }
 		}
 
 
@@ -437,7 +441,12 @@ namespace dooqu_service
 		{
 			__lock__(this->http_request_mutex_, "game_service::get_http_request");
 
+			if (this->http_request_working_.size() > MAX_AUTH_SESSION_COUNT)
+			{
+                return NULL;
+			}
 			void* request_mem = boost::singleton_pool<http_request, sizeof(http_request)>::malloc();
+			//http_request* request = new(request_mem) http_request();
 			this->http_request_working_.insert((http_request*)request_mem);
 
 			return (http_request*)request_mem;
@@ -455,7 +464,7 @@ namespace dooqu_service
 				}
 			}
 
-			request->~http_request();
+			//request->~http_request();
 			boost::singleton_pool<http_request, sizeof(http_request)>::free((void*)request);
 		}
 
@@ -476,6 +485,7 @@ namespace dooqu_service
 
 			int result_code = service_error::OK;
 
+			__lock__(this->plugins_mutex_, "game_service::client_login_handle::plugins_mutex");
 			//查找是否存在对应玩家想加入的的game_plugin
 			game_plugin_map::iterator it = this->plugins_.find(command->params(0));
 			if (it != this->plugins_.end())
