@@ -67,8 +67,8 @@ namespace dooqu_service
 			virtual void on_destroy_clients_in_destroy_list(bool force_destroy);
 
 			//非虚方法
-			void begin_auth(game_plugin* plugin, game_client* client, command* cmd);
-			void end_auth(const boost::system::error_code& code, const int, const std::string& response_string, http_request* request, game_plugin* plugin, game_client* client);
+			void begin_auth(const char* plugin_id, game_client* client, command* cmd);
+			void end_auth(const boost::system::error_code& code, const int, const std::string& response_string, http_request* request, const char* plugin_id, game_client* client);
 			void dispatch_bye(game_client* client);
 
 			//应用层注册

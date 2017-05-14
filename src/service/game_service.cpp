@@ -211,28 +211,33 @@ namespace dooqu_service
 		}
 
 
-		void game_service::on_client_join(tcp_client* client)
+		void game_service::on_client_join(tcp_client* t_client)
 		{
-			printf("game_client connected.\n");
+			game_client* client = (game_client*)t_client;
 
-			game_client* g_client = (game_client*)client;
-			{
+			//设置socket为激活状态
+			client->available_ = true;
+			//设置命令的监听者为当前service
+			client->set_command_dispatcher(this);
+
+			//考虑极限情况，刚连上，就断开的情况
+			if(client->available() == true)
+            {
+                //重置活动时间戳
+                client->active();
 				//对用户组上锁
 				__lock__(this->clients_mutex_, "game_service::on_client_join");
 				//在登录用户组中注册
-				this->clients_.insert(g_client);
+				this->clients_.insert(client);
+
+                client->read_from_client();
+
+                printf("game_client connected.\n");
 			}
-			//重置活动时间戳
-			g_client->active();
-
-			//设置socket为激活状态
-			g_client->available_ = true;
-
-			//设置命令的监听者为当前service
-			g_client->set_command_dispatcher(this);
-
-			//开始读取用户的网络消息
-			g_client->read_from_client();
+			else
+			{
+                this->dispatch_bye(client);
+			}
 		}
 
 
@@ -367,7 +372,7 @@ namespace dooqu_service
 		}
 
 
-		void game_service::begin_auth(game_plugin* plugin, game_client* client, command* cmd)
+		void game_service::begin_auth(const char* plugin_id, game_client* client, command* cmd)
 		{
 //            void* http_req_mem = this->get_http_request();
 //			if (http_req_mem == NULL)
@@ -386,7 +391,7 @@ namespace dooqu_service
 			//分配http_request的对象内存
 			//void* request_mem = this->get_http_request();
 
-			this->io_service_.post(boost::bind(&game_service::end_auth, this, boost::asio::error::eof, 200, std::string(), (http_request*)NULL, plugin, client));
+			this->io_service_.post(boost::bind(&game_service::end_auth, this, boost::asio::error::eof, 200, std::string(), (http_request*)NULL, plugin_id, client));
 			//this->end_auth(boost::asio::error::eof, 200, std::string(), NULL, plugin, client);
 			//http_request* request = new(request_mem)http_request(this->get_io_service(),
 			//	"127.0.0.1",
@@ -395,7 +400,7 @@ namespace dooqu_service
 		}
 
 
-		void game_service::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, http_request* request, game_plugin* plugin, game_client* client)
+		void game_service::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, http_request* request, const char* plugin_id, game_client* client)
 		{
 			//this->free_http_request(request);
 
@@ -414,25 +419,37 @@ namespace dooqu_service
 
                 if (client->available() == false)
                     return;
+            }
 
                 //http ok
-                if (code == boost::asio::error::eof && status_code == 200)
+            if (code == boost::asio::error::eof && status_code == 200)
+            {
+                //上锁检查，因为plugin有可能已经被卸载
+                __lock__(this->plugins_mutex_, "game_service::end_auth::plugin_mutex");
+
+                //检查当前要登录的plugin是否还有效
+                game_plugin_map::iterator finder = this->plugins_.find(plugin_id);
+
+                if(finder != this->plugins_.end())
                 {
-                    __lock__(this->plugins_mutex_, "game_service::end_auth::plugin_mutex");
-                    //上锁，因为plugin有可能已经销毁
-                    ret = plugin->auth_client(client, response_string);
+                    ret = (*finder).second->auth_client(client, response_string);
                 }
                 else
                 {
-                    printf("http authentication server error.\n");
-                    ret = service_error::LOGIN_SERVICE_ERROR;
+                    ret = service_error::GAME_NOT_EXISTED;
                 }
+            }
+            else
+            {
+                ret = service_error::LOGIN_SERVICE_ERROR;
+                printf("http authentication server error.\n");
+            }
 
-                if (ret != service_error::OK)
-                {
-                    printf("disconnect client because auth error.\n");
-                    client->disconnect(ret);
-                }
+
+            if (ret != service_error::OK)
+            {
+                client->disconnect(ret);
+                printf("disconnect client because auth error.\n");
             }
 		}
 
@@ -477,23 +494,16 @@ namespace dooqu_service
 				return;
 			}
 
-			if (client->available() == false)
-				return;
-
-			//更新激活时间，防止被另外一个线程的更新销毁掉。
-			//client->active();
-
-			int result_code = service_error::OK;
-
 			__lock__(this->plugins_mutex_, "game_service::client_login_handle::plugins_mutex");
 			//查找是否存在对应玩家想加入的的game_plugin
 			game_plugin_map::iterator it = this->plugins_.find(command->params(0));
 			if (it != this->plugins_.end())
 			{
-				//没法用plugin.begin,因为回调函数回来之后，plugin可能已经被销毁了。
-				//所以要统一回调到game_service的方法上，然后首先对is_running进行检测。
-				client->fill(command->params(1), command->params(1), NULL);
-				this->begin_auth((*it).second, client, command);
+                client->fill(command->params(1), command->params(1), NULL);
+
+                game_plugin* plugin = (*it).second;
+				//把目标plugin的id带上，在回调函数中要再次检查plugin是否还在
+				this->begin_auth(plugin->game_id(), client, command);
 			}
 			else
 			{

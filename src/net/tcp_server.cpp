@@ -117,7 +117,6 @@ namespace dooqu_service
 				this->worker_threads_.clear();
 				//所有线程上的事件都已经执行完毕后， 安全的停止io_service;
 				this->io_service_.stop();
-
 				//重置io_service，以备后续可能的tcp_server.start()的再次调用。
 				this->io_service_.reset();
 
