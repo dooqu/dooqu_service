@@ -35,7 +35,7 @@ namespace dooqu_service
 
                 for (int i = 0; i < this->free_timers_.size(); ++i)
                 {
-                    this->free_timers_.at(i)->cancel();
+                    //this->free_timers_.at(i)->cancel();
                     this->free_timers_.at(i)->~task_timer();
 
                     //delete this->free_timers_.at(i);
@@ -84,7 +84,8 @@ namespace dooqu_service
                 //如果对象池中无有效的timer对象，再进行实例化
                 if (curr_timer_ == NULL)
                 {
-                    void* timer_mem = ::operator new(sizeof(task_timer));//boost::singleton_pool<task_timer, sizeof(deadline_timer_ex)>::malloc();
+                    //void* timer_mem = ::operator new(sizeof(task_timer));//boost::singleton_pool<task_timer, sizeof(deadline_timer_ex)>::malloc();
+                    void* timer_mem = boost::singleton_pool<task_timer, sizeof(task_timer)>::malloc();
                     curr_timer_ = new(timer_mem)task_timer(this->io_service_, cancel_enabled);
                 }
 
@@ -105,6 +106,7 @@ namespace dooqu_service
         }
 
 
+        //能够cancel的task，一定不能回收利用，无法解决“轮回”问题；
         bool async_task::cancel_task(task_timer* timer)
         {
             if(timer == NULL || timer->is_cancel_eanbled() == false)
@@ -130,6 +132,44 @@ namespace dooqu_service
             //如果==0， 已经在task_handle那边销毁了
 
             return false;
+        }
+
+
+        void async_task::cancel_all_task()
+        {
+            std::vector<task_timer*> tasks;
+            {
+                __lock__(this->working_timers_mutex_, "game_zone::cancel_handle::working_timers_mutex");
+
+                for(std::set<task_timer*>::iterator e = this->working_timers_.begin();
+                    e != this->working_timers_.end(); ++ e)
+                {
+                    (*e)->cancel();
+                    tasks.push_back(*e);
+                }
+                tasks.clear();
+            }
+
+
+            {
+                __lock__(this->free_timers_mutex_, "game_zone::task_handle::free_timers_mutex");
+
+                for(int i = 0; i < tasks.size(); i++)
+                {
+                    task_timer* curr_free_timer = tasks.at(i);
+
+                    if(curr_free_timer->is_cancel_eanbled())
+                    {
+                        curr_free_timer->~task_timer();
+                        //delete free_timer;
+                        boost::singleton_pool<task_timer, sizeof(task_timer)>::free(curr_free_timer);
+                    }
+                    else
+                    {
+                        free_timers_.push_back(tasks.at(i));
+                    }
+                }
+            }
         }
         //queue_task的内置回调函数
         //1、判断回调状态
@@ -166,10 +206,6 @@ namespace dooqu_service
                         if (this->free_timers_.size() > MIN_ACTIVED_TIMER
                                 && this->free_timers_.back()->last_actived_time.elapsed() > MAX_TIMER_FREE_TICK)
                         {
-//                            if (game_zone::LOG_TIMERS_INFO)
-//                            {
-//                                printf("{%s} free timers were destroyed,left=%d.\n", this->get_id(), this->free_timers_.size());
-//                            }
                             task_timer* free_timer = this->free_timers_.back();
                             this->free_timers_.pop_back();
 

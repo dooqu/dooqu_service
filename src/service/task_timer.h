@@ -41,6 +41,7 @@ namespace dooqu_service
             virtual ~async_task();
             task_timer* queue_task(std::function<void(void)> callback_handle, int millisecs_wait, bool cancel_enabled = false);
             bool cancel_task(task_timer* timer);
+            void cancel_all_task();
 
         protected:
             io_service& io_service_;

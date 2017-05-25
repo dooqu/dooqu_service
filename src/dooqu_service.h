@@ -5,4 +5,9 @@
 #include "service/game_service.h"
 #include "service/game_plugin.h"
 #include "service/task_timer.h"
+
+using namespace dooqu_service;
+using namespace dooqu_service::net;
+using namespace dooqu_service::service;
+using namespace dooqu_service::util;
 #endif // DOOQU_SERVICE_H
