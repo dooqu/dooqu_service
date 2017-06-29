@@ -60,7 +60,7 @@ namespace dooqu_service
 			virtual void on_stop();
 			inline virtual void on_client_command(game_client* client, command* command);
 			virtual tcp_client* on_create_client();
-			virtual void on_client_join(tcp_client* client);
+			virtual void on_client_connected(tcp_client* client);
 			virtual void on_client_leave(game_client* client, int code);
 			virtual void on_destroy_client(tcp_client*);
 			virtual void on_check_timeout_clients(const boost::system::error_code &error);

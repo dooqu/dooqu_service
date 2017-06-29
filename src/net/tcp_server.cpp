@@ -146,9 +146,8 @@ namespace dooqu_service
 			{
 				if (this->is_running_)
 				{
-					//处理新加入的game_client对象，这个时候game_client的available已经是true;
-					this->on_client_join(client);
-
+                    //处理新加入的game_client对象，这个时候game_client的available已经是true;
+					this->on_client_connected(client);
 					//处理当前的game_client对象，继续投递一个新的接收请求；
 					start_accept();
 				}
@@ -165,7 +164,6 @@ namespace dooqu_service
 				//但因为start_accept，已经提前投递了N个game_client
 				//所以这里返回要对game_client进行销毁处理
 				//printf("tcp_server.accept_handle canceled:%s\n", error.message().c_str());
-
 				this->on_destroy_client(client);
 			}
 		}

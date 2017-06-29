@@ -116,9 +116,6 @@ namespace dooqu_service
 			curr_zone != this->zones_.end(); ++curr_zone)
 			{
 				(*curr_zone).second->load();
-
-				//为这个分区创建工作者线程
-				//this->create_worker_thread();
 			}
 
 			{
@@ -135,9 +132,7 @@ namespace dooqu_service
 
 		void game_service::on_start()
 		{
-			///!!!!!!!!!!!
-			//启动检查登录超时用户的定时器
-			this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(3));
+			this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(5));
 			this->check_timeout_timer.async_wait(std::bind(&game_service::on_check_timeout_clients, this, std::placeholders::_1));
 		}
 
@@ -203,6 +198,7 @@ namespace dooqu_service
 		}
 
 
+
 		tcp_client* game_service::on_create_client()
 		{
 			void* client_mem = boost::singleton_pool<game_client, sizeof(game_client)>::malloc();
@@ -211,33 +207,23 @@ namespace dooqu_service
 		}
 
 
-		void game_service::on_client_join(tcp_client* t_client)
+		void game_service::on_client_connected(tcp_client* t_client)
 		{
 			game_client* client = (game_client*)t_client;
-
-			//设置socket为激活状态
 			client->available_ = true;
 			//设置命令的监听者为当前service
 			client->set_command_dispatcher(this);
 
-			//考虑极限情况，刚连上，就断开的情况
-			if(client->available() == true)
-            {
-                //重置活动时间戳
-                client->active();
-				//对用户组上锁
-				__lock__(this->clients_mutex_, "game_service::on_client_join");
-				//在登录用户组中注册
-				this->clients_.insert(client);
-
-                client->read_from_client();
-
-                printf("game_client connected.\n");
-			}
-			else
 			{
-                this->dispatch_bye(client);
-			}
+                __lock__(this->clients_mutex_, "game_service::on_client_join");
+				//在登录用户组中注册
+                this->clients_.insert(client);
+			}//对用户组上锁
+
+            client->read_from_client();
+            client->active();
+
+            printf("game_client connected.\n");
 		}
 
 
@@ -247,24 +233,20 @@ namespace dooqu_service
 			printf("{%s} leave game_service. code={%d}\n", client->id(), leave_code);
 
 			client->set_command_dispatcher(NULL);
-
 			{
 				__lock__(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
 				this->clients_.erase(client);
 			}
 
-			bool is_client_sending_not_completed;
-
 			{
 				__lock__(client->status_lock_, "game_service::on_client_leave::status_lock");
-				is_client_sending_not_completed = client->is_data_sending_;
+				if(client->is_data_sending_ == false)
+				{
+                    this->on_destroy_client(client);
+                    return;
+				}
 			}
 
-			if (is_client_sending_not_completed == false)
-			{
-				this->on_destroy_client(client);
-			}
-			else
 			{
                 __lock__(this->destroy_list_mutex_, "game_service::on_client_leave::destroy_list_mutext");
 				this->client_list_for_destroy_.push_back(client);
@@ -310,10 +292,7 @@ namespace dooqu_service
 		//使用了定时器
 		void game_service::on_check_timeout_clients(const boost::system::error_code &error)
 		{
-			//printf("game_service::on_run's thread id:%d\n", boost::this_thread::get_id());
 
-			//thread_mutex_map::iterator curr_mutex = this->thread_mutexs()->find(boost::this_thread::get_id());
-			//boost::recursive_mutex::scoped_lock lock(*curr_mutex->second);
 			if (!error && this->is_running_)
 			{
 				//如果禁用超时检测，请注释return;
@@ -403,7 +382,6 @@ namespace dooqu_service
 		void game_service::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, http_request* request, const char* plugin_id, game_client* client)
 		{
 			//this->free_http_request(request);
-
             if (this->is_running_ == false)
                 return;
 
@@ -426,7 +404,6 @@ namespace dooqu_service
             {
                 //上锁检查，因为plugin有可能已经被卸载
                 __lock__(this->plugins_mutex_, "game_service::end_auth::plugin_mutex");
-
                 //检查当前要登录的plugin是否还有效
                 game_plugin_map::iterator finder = this->plugins_.find(plugin_id);
 
@@ -494,6 +471,14 @@ namespace dooqu_service
 				return;
 			}
 
+			/*检查该玩家是否已经发送过LOG命令， 防止在begin_auth异步去做其他事情的时候，该client又发起LOG操作*/
+			/*至于位什么不用上锁， 是因为，本质上，单个用户的命令是串行的，不会产生并发冲突*/
+			if(client->plugin_addr_ != 0)
+			{
+                client->disconnect(service_error::CLIENT_HAS_LOGINED);
+                return;
+			}
+
 			__lock__(this->plugins_mutex_, "game_service::client_login_handle::plugins_mutex");
 			//查找是否存在对应玩家想加入的的game_plugin
 			game_plugin_map::iterator it = this->plugins_.find(command->params(0));
@@ -502,12 +487,13 @@ namespace dooqu_service
                 client->fill(command->params(1), command->params(1), NULL);
 
                 game_plugin* plugin = (*it).second;
+                //设定plugin_addr_地址，防止用户重复发送LOG命令
+                client->plugin_addr_ = reinterpret_cast<int>(plugin);
 				//把目标plugin的id带上，在回调函数中要再次检查plugin是否还在
 				this->begin_auth(plugin->game_id(), client, command);
 			}
 			else
 			{
-				//printf("game not existed.\n");
 				client->disconnect(service_error::GAME_NOT_EXISTED);
 			}
 		}

@@ -21,10 +21,24 @@ namespace dooqu_service
 		{
 		protected:
             bool cancel_enabled_;
+            bool disposed_;
 		public:
 			tick_count last_actived_time;
-			task_timer(io_service& ios, bool cancel_enabled = false) : deadline_timer(ios){ this->cancel_enabled_ = cancel_enabled; }
-			virtual ~task_timer(){  };
+			task_timer(io_service& ios, bool cancel_enabled = false) : deadline_timer(ios)
+			{ this->cancel_enabled_ = cancel_enabled; this->disposed_ = false;}
+
+
+			virtual ~task_timer(){
+
+			if(this->disposed_)
+			{
+
+                printf("has disposed:%d\n", this);
+                return;
+			}
+
+
+			 };
 
 			bool is_cancel_eanbled()
 			{

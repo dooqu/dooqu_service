@@ -168,7 +168,6 @@ namespace dooqu_service
 				return;
 			}
 
-
 			//std::cout << "START:send_handle_inlock" << std::endl;
 			//这里考虑下极限情况，如果this已经被销毁？
 			if (this->available() == false)
@@ -240,7 +239,7 @@ namespace dooqu_service
 		{
 			__lock__(this->status_lock_, "tcp_client::disconnect");
 
-			if (this->available_)
+			if (this->available())
 			{
 				this->available_ = false;
 

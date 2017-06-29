@@ -188,9 +188,7 @@ namespace dooqu_service
 
 		protected:
 			bool is_data_sending_;
-
-		protected:
-			//状态锁
+            //状态锁
 
 			std::recursive_mutex status_lock_;
 

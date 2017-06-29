@@ -47,8 +47,9 @@ namespace dooqu_service
 			void accept_handle(const boost::system::error_code& error, tcp_client* client);
 
 			virtual tcp_client* on_create_client() = 0;
-			virtual void on_client_join(tcp_client* client) = 0;
+			virtual void on_client_connected(tcp_client* client) = 0;
 			virtual void on_destroy_client(tcp_client*) = 0;
+
 			virtual void on_init();
 			virtual void on_start();
 			virtual void on_stop();

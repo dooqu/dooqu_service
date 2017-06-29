@@ -38,6 +38,7 @@ namespace dooqu_service
 			post_monitor active_monitor_;
 			int retry_update_times_;
 			int error_code_;
+			int plugin_addr_;
 
 			inline void on_data_received(const boost::system::error_code& error, size_t bytes_received);
 			virtual void on_error(const int error);

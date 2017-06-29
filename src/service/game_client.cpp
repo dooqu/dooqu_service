@@ -8,7 +8,8 @@ namespace dooqu_service
 			tcp_client(ios),
 			game_info_(NULL),
 			cmd_dispatcher_(NULL),
-			error_code_(0)
+			error_code_(0),
+			plugin_addr_(0)
 		{
 			this->id_[0] = 0;
 			this->name_[0] = 0;
@@ -21,7 +22,7 @@ namespace dooqu_service
 
 		game_client::~game_client()
 		{
-			printf("game_client destroyed.\n");
+
 		}
 
 

@@ -12,7 +12,8 @@ namespace dooqu_service
 
         async_task::~async_task()
         {
-            printf("~async_task\n");
+            printf("start ~async_task\n");
+
             {
                 __lock__(this->working_timers_mutex_, "~game_zone::working_timers_mutex");
 
@@ -20,10 +21,10 @@ namespace dooqu_service
                         pos_timer != this->working_timers_.end();
                         ++pos_timer)
                 {
+                    //printf("~async_task working dispose:%d\n", *pos_timer);
                     (*pos_timer)->cancel();
                     (*pos_timer)->~task_timer();
 
-                    //delete (*pos_timer);
                     boost::singleton_pool<task_timer, sizeof(task_timer)>::free(*pos_timer);
                 }
                 this->working_timers_.clear();
@@ -33,13 +34,23 @@ namespace dooqu_service
             {
                 __lock__(this->free_timers_mutex_, "~game_zone::free_timers_mutex");
 
-                for (int i = 0; i < this->free_timers_.size(); ++i)
+                int free_timers_size = this->free_timers_.size();
+
+                printf("free_timers_size is: %d\n", free_timers_size);
+
+                for (int i = 0; i < free_timers_size; ++i)
                 {
                     //this->free_timers_.at(i)->cancel();
-                    this->free_timers_.at(i)->~task_timer();
 
+                    task_timer* curr_timer = this->free_timers_.at(i);
+
+                    //printf("~async_task freeing dispose:%d\n", curr_timer);
+
+                    curr_timer->~task_timer();
                     //delete this->free_timers_.at(i);
-                    boost::singleton_pool<task_timer, sizeof(task_timer)>::free(this->free_timers_.at(i));
+                    boost::singleton_pool<task_timer, sizeof(task_timer)>::free(curr_timer);
+
+                    //printf("%d\n", i);
                 }
 
                 this->free_timers_.clear();
@@ -54,55 +65,45 @@ namespace dooqu_service
         //注意：｛如果game_zone所使用的io_service对象被cancel掉，那么用户层所注册的callback_handle是不会被调用的！｝
         task_timer* async_task::queue_task(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled)
         {
-            //状态锁
-            //__lock__(this->status_mutex_, "game_zone::queue_task::status_mutex");
+            //预备timer的指针，并尝试从timer对象池中取出一个空闲的timer进行使用
+            //########################################################
+            task_timer* curr_timer_ = NULL;
 
-            //if (this->game_service_->is_running() && this->is_onlined_)
+            if(cancel_enabled == false)
             {
-                //预备timer的指针，并尝试从timer对象池中取出一个空闲的timer进行使用
-                //########################################################
-                task_timer* curr_timer_ = NULL;
+                //队列上锁，先检查队列中是否有可用的timer
+                __lock__(this->free_timers_mutex_,  "game_zone::queue_task::free_timers_mutex");
 
-                if(cancel_enabled == false)
+                if (this->free_timers_.size() > 0)
                 {
-                    //队列上锁，先检查队列中是否有可用的timer
-                    __lock__(this->free_timers_mutex_,  "game_zone::queue_task::free_timers_mutex");
-
-                    if (this->free_timers_.size() > 0)
-                    {
-                        curr_timer_ = this->free_timers_.front();
-                        this->free_timers_.pop_front();
-
-                       // if (game_zone::LOG_TIMERS_INFO)
-                        {
-                           // printf("{%s} use the existed timer of 1 / %d : %d.\n", this->get_id(), this->free_timers_.size(), this->working_timers_.size());
-                        }
-                    }
+                    curr_timer_ = this->free_timers_.front();
+                    this->free_timers_.pop_front();
                 }
-                //########################################################
-
-                //如果对象池中无有效的timer对象，再进行实例化
-                if (curr_timer_ == NULL)
-                {
-                    //void* timer_mem = ::operator new(sizeof(task_timer));//boost::singleton_pool<task_timer, sizeof(deadline_timer_ex)>::malloc();
-                    void* timer_mem = boost::singleton_pool<task_timer, sizeof(task_timer)>::malloc();
-                    curr_timer_ = new(timer_mem)task_timer(this->io_service_, cancel_enabled);
-                }
-
-                {
-                    __lock__(this->working_timers_mutex_,  "game_zone::queue_task::working_timers_mutex");
-                    //考虑把if(curr_timer == NULL)的一段代码放置到此位置，防止出现野timer
-                    //极限情况，后续lock + destroy之后，这里又加入了
-                    this->working_timers_.insert(curr_timer_);
-                }
-
-                //调用操作
-                curr_timer_->expires_from_now(boost::posix_time::milliseconds(sleep_duration));
-                curr_timer_->async_wait(std::bind(&async_task::task_handle, this,
-                                                  std::placeholders::_1, curr_timer_, callback_handle));
-
-                return curr_timer_;
             }
+            //########################################################
+
+            //如果对象池中无有效的timer对象，再进行实例化
+            if (curr_timer_ == NULL)
+            {
+                //void* timer_mem = ::operator new(sizeof(task_timer));//boost::singleton_pool<task_timer, sizeof(deadline_timer_ex)>::malloc();
+                void* timer_mem = boost::singleton_pool<task_timer, sizeof(task_timer)>::malloc();
+                curr_timer_ = new(timer_mem)task_timer(this->io_service_, cancel_enabled);
+            }
+
+            //调用操作
+            curr_timer_->expires_from_now(boost::posix_time::milliseconds(sleep_duration));
+            curr_timer_->async_wait(std::bind(&async_task::task_handle, this,
+            std::placeholders::_1, curr_timer_, callback_handle));
+
+            {
+                __lock__(this->working_timers_mutex_,  "game_zone::queue_task::working_timers_mutex");
+                //考虑把if(curr_timer == NULL)的一段代码放置到此位置，防止出现野timer
+                //极限情况，后续lock + destroy之后，这里又加入了
+                this->working_timers_.insert(curr_timer_);
+            }
+
+            return curr_timer_;
+
         }
 
 
@@ -122,6 +123,7 @@ namespace dooqu_service
                     this->working_timers_.erase(timer);
                 }
 
+                //printf("cancel_task dispose:%d\n", timer);
                 timer->~task_timer();
                         //delete free_timer;
                 boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer);
@@ -147,7 +149,8 @@ namespace dooqu_service
                     (*e)->cancel();
                     tasks.push_back(*e);
                 }
-                tasks.clear();
+
+                this->working_timers_.clear();
             }
 
 
@@ -170,6 +173,8 @@ namespace dooqu_service
                     }
                 }
             }
+
+            printf("end cancel all task\n");
         }
         //queue_task的内置回调函数
         //1、判断回调状态
@@ -182,52 +187,49 @@ namespace dooqu_service
             {
                 //先锁状态，看game_zone的状态，如果还在running，那么继续处理逻辑，否则处理timer
                 //__lock__(this->status_mutex_, "game_zone::task_handle::status_mutex");
-
-                //if (this->game_service_->is_running() && this->is_onlined_ == true)
                 {
-                    //#######此处代码处理用完的timer，返还给队列池##########
+                    //#######此处  代码处理用完的timer，返还给队列池##########
                     //#################################################
-                    {
-                        __lock__(this->working_timers_mutex_, "game_zone::task_handle::working_timers_mutex");
-                        this->working_timers_.erase(timer_);
-                    }
-
-                    if(timer_->is_cancel_eanbled() == false)
-                    {
-                        __lock__(this->free_timers_mutex_, "game_zone::task_handle::free_timers_mutex");
-
-                        //将用用完的timer返回给队列池，放在池的前部
-                        this->free_timers_.push_front(timer_);
-
-                        //标记最后的激活时间
-                        timer_->last_actived_time.restart();
-
-                        //从后方检查栈队列中最后的元素是否是空闲了指定时间
-                        if (this->free_timers_.size() > MIN_ACTIVED_TIMER
-                                && this->free_timers_.back()->last_actived_time.elapsed() > MAX_TIMER_FREE_TICK)
-                        {
-                            task_timer* free_timer = this->free_timers_.back();
-                            this->free_timers_.pop_back();
-
-                            //delete free_timer;
-                            free_timer->~task_timer();
-                            boost::singleton_pool<task_timer, sizeof(task_timer)>::free(free_timer);
-                        }
-                    }
-                    else
-                    {
-                        timer_->~task_timer();
-                        boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer_);
-                    }
-                    //########处理timer完毕###############################
-                    //###################################################
-                    //回调上层逻辑callback
-                    callback_handle();
-                    //返回不执行后续逻辑
-                    return;
+                    __lock__(this->working_timers_mutex_, "game_zone::task_handle::working_timers_mutex");
+                    this->working_timers_.erase(timer_);
                 }
-            }
 
+                if(timer_->is_cancel_eanbled() == false)
+                {
+                    __lock__(this->free_timers_mutex_, "game_zone::task_handle::free_timers_mutex");
+
+                    //将用用完的timer返回给队列池，放在池的前部
+                    this->free_timers_.push_front(timer_);
+
+                    //标记最后的激活时间
+                    timer_->last_actived_time.restart();
+
+                    //从后方检查栈队列中最后的元素是否是空闲了指定时间
+                    if (this->free_timers_.size() > MIN_ACTIVED_TIMER
+                    && this->free_timers_.back()->last_actived_time.elapsed() > MAX_TIMER_FREE_TICK)
+                    {
+                        task_timer* free_timer = this->free_timers_.back();
+                        this->free_timers_.pop_back();
+
+                        //delete free_timer;
+                       // printf("handle  dispose :%d\n", free_timer);
+                        free_timer->~task_timer();
+                        boost::singleton_pool<task_timer, sizeof(task_timer)>::free(free_timer);
+                    }
+                }
+                else
+                {
+                    //printf("handle cancel dispose :%d\n", timer_);
+                    timer_->~task_timer();
+                    boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer_);
+                }
+                //########处理timer完毕###############################
+                //###################################################
+                //回调上层逻辑callback
+                callback_handle();
+                //返回不执行后续逻辑
+                return;
+            }
             //如果调用失效，或者已经unload，那就不用返还了额，直接delete
             //delete timer_;
             //timer_->~timer();

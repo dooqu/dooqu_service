@@ -16,6 +16,7 @@
 					<Add option="-std=c++11" />
 					<Add option="-g" />
 					<Add option="-fPIC" />
+					<Add option="-fpermissive" />
 					<Add directory="src" />
 				</Compiler>
 				<Linker>
