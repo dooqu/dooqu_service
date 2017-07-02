@@ -14,17 +14,19 @@ game_service::game_service(unsigned int port) :
 
 int game_service::load_plugin(game_plugin* game_plugin, char* zone_id, char** errorMsg)
 {
+    assert(std::this_thread::get_id() == this->service_thread_id_);
+
     if (game_plugin == NULL || game_plugin->game_id() == NULL || game_plugin->game_service_ != this)
     {
         //dooqu_service::util::print_error_info("plugin not created, argument error.");
-        (*errorMsg) = "argument error.";
+        (*errorMsg) = "plugin's argument error.";
         return -1;
     }
 
     if(game_plugin->is_onlined_ || game_plugin->clients()->size() > 0)
     {
         //dooqu_service::util::print_error_info("plugin {%s} is in using.", game_plugin->game_id());
-        (*errorMsg) = "plugin is in using.";
+        (*errorMsg) = "plugin is in use.";
         return -2;
     }
 
@@ -35,7 +37,7 @@ int game_service::load_plugin(game_plugin* game_plugin, char* zone_id, char** er
     if (curr_plugin != this->plugins_.end())
     {
         //dooqu_service::util::print_error_info("plugin's id {%s} is in use.", game_plugin->game_id());
-        (*errorMsg) = "plugin is in using.";
+        (*errorMsg) = "plugin is in use.";
         return -2;
     }
 
@@ -58,8 +60,6 @@ int game_service::load_plugin(game_plugin* game_plugin, char* zone_id, char** er
             if (this->is_running_ && zone != NULL)
             {
                 zone->load();
-                //为这个分区创建工作者线程
-                //this->create_worker_thread();
             }
             this->zones_[zone->get_id()] = zone;
             game_plugin->zone_ = zone;
@@ -75,9 +75,15 @@ int game_service::load_plugin(game_plugin* game_plugin, char* zone_id, char** er
 }
 
 
+/*
+unload the plugin, remove the plugin from service's plugin list.
+and call plugin's onunload event if plugin not unload.
+*/
 bool game_service::unload_plugin(game_plugin* plugin, int seconds_for_wait_compl)
 {
-    if(plugin == NULL || plugin->game_id() == NULL || plugin->is_onlined() == false)
+    assert(std::this_thread::get_id() == this->service_thread_id_);
+
+    if(plugin == NULL || plugin->game_id() == NULL)
         return false;
 
     {
@@ -89,18 +95,38 @@ bool game_service::unload_plugin(game_plugin* plugin, int seconds_for_wait_compl
         this->plugin_list_.remove(plugin);
     }
 
-    plugin->unload();
-
-    for(int i = 0; i < seconds_for_wait_compl * 10; i++)
+    if(plugin->is_onlined())
     {
-        if(plugin->clients()->size() > 0)
+        plugin->unload();
+    }
+
+    int millisecs_for_wait_compl = seconds_for_wait_compl * 1000;
+    int millisecs_sleeped = 0;
+
+    for(;;)
+    {
+        if(plugin->clients()->size() <= 0)
+            return true;
+
+        if(seconds_for_wait_compl <= -1)
         {
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
-        return true;
+        else if(seconds_for_wait_compl == 0)
+        {
+            return false;
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if((millisecs_sleeped += 100) <  millisecs_for_wait_compl)
+            {
+                continue;
+            }
+            return false;
+        }
     }
-    return false;
 }
 
 
@@ -203,7 +229,7 @@ tcp_client* game_service::on_create_client()
 {
     void* client_mem = boost::singleton_pool<game_client, sizeof(game_client)>::malloc();
 
-    return new(client_mem)game_client(this->get_io_service());
+    return new(client_mem) game_client(this->get_io_service());
 }
 
 
@@ -292,14 +318,11 @@ void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
 //使用了定时器
 void game_service::on_check_timeout_clients(const boost::system::error_code &error)
 {
-
     if (!error && this->is_running_)
     {
         //如果禁用超时检测，请注释return;
         {
-            //对登录用户上锁
             __lock__(this->clients_mutex_, "game_service::on_check_timeout_clients::clients_mutex");
-
             //对所有用户的active时间进行对比，超过20秒还没有登录动作的用户被装进临时数组
             for (game_client_map::iterator curr_client = this->clients_.begin();
                     curr_client != this->clients_.end(); ++curr_client)
@@ -330,7 +353,6 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
 
         this->on_destroy_clients_in_destroy_list(false);
 
-
         if (tcp_client::LOG_IO_DATA)
         {
             char io_buffer_msg[64] = { 0 };
@@ -340,7 +362,6 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
             tcp_client::CURR_RECE_TOTAL = 0;
             tcp_client::CURR_SEND_TOTAL = 0;
         }
-
         //如果服务没有停止， 那么继续下一次计时
         if (this->is_running_)
         {
@@ -354,21 +375,21 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
 void game_service::begin_auth(const char* plugin_id, game_client* client, command* cmd)
 {
 //            void* http_req_mem = this->get_http_request();
-//			if (http_req_mem == NULL)
-//			{
-//				client->disconnect(service_error::LOGIN_CONCURENCY_LIMIT);
-//				return;
-//			}
-
-    //http_request* request = new(request_mem)http_request(this->get_io_service(),
-    //	"127.0.0.1",
-    //	"/auth.aspx",
-    //	boost::bind(&game_service::end_auth, this, _1, _2, _3, (http_request*)request_mem, plugin, client));
-    //如果需要不请求http server请拿掉此注释
-
-
-    //分配http_request的对象内存
-    //void* request_mem = this->get_http_request();
+//            if (http_req_mem == NULL)
+//            {
+//                client->disconnect(service_error::LOGIN_CONCURENCY_LIMIT);
+//                return;
+//            }
+//
+//            http_request* request = new(request_mem)http_request(this->get_io_service(),
+//            "127.0.0.1",
+//            "/auth.aspx",
+//            boost::bind(&game_service::end_auth, this, _1, _2, _3, (http_request*)request_mem, plugin, client));
+//            如果需要不请求http server请拿掉此注释
+//
+//
+//            分配http_request的对象内存
+//            void* request_mem = this->get_http_request();
 
     this->io_service_.post(boost::bind(&game_service::end_auth, this, boost::asio::error::eof, 200, std::string(), (http_request*)NULL, plugin_id, client));
     //this->end_auth(boost::asio::error::eof, 200, std::string(), NULL, plugin, client);
@@ -388,9 +409,7 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
     int ret = service_error::OK;
 
     {
-        //对登录的用户列表进行上锁
         __lock__(this->clients_mutex_, "game_service::end_auth::clients_mutex");
-
         //如果clients_中没有找到client，那么返回，说明client已经销毁了
         if(this->clients_.erase(client) <= 0)
             return;
@@ -421,7 +440,6 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
         ret = service_error::LOGIN_SERVICE_ERROR;
         printf("http authentication server error.\n");
     }
-
 
     if (ret != service_error::OK)
     {
@@ -457,7 +475,6 @@ void game_service::free_http_request(http_request* request)
             this->http_request_working_.erase(request);
         }
     }
-
     //request->~http_request();
     boost::singleton_pool<http_request, sizeof(http_request)>::free((void*)request);
 }
@@ -506,13 +523,10 @@ void game_service::robot_login_handle(game_client* client, command* command)
 
 game_service::~game_service()
 {
-    printf("start ~game_service\n");
-
     if (this->is_running_ == true)
     {
         this->stop();
     }
-
     //销毁所有的游戏插件
 //			for (game_plugin_map::iterator curr_game = this->plugins_.begin();
 //			curr_game != this->plugins_.end(); ++curr_game)
@@ -551,8 +565,6 @@ game_service::~game_service()
     boost::singleton_pool<game_client, sizeof(game_client)>::purge_memory();
     boost::singleton_pool<http_request, sizeof(http_request)>::purge_memory();
     boost::singleton_pool<timer, sizeof(timer)>::purge_memory();
-
-    printf("game_service destroyed.\n");
 }
 }
 }

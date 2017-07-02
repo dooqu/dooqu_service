@@ -6,7 +6,11 @@ namespace dooqu_service
 {
 	namespace service
 	{
-		game_plugin::game_plugin(game_service* game_service, char* gameid, char* title, double frequence) : game_service_(game_service), update_timer_(this->game_service_->get_io_service())
+		game_plugin::game_plugin(game_service* game_service, char* gameid, char* title, int capacity) :
+		game_service_(game_service),
+		update_timer_(this->game_service_->get_io_service()),
+		capacity_(capacity),
+		frequence_(2000)
 		{
 			this->gameid_ = new char[std::strlen(gameid) + 1];
 			std::strcpy(this->gameid_, gameid);
@@ -14,7 +18,6 @@ namespace dooqu_service
 			this->title_ = new char[std::strlen(title) + 1];
 			std::strcpy(this->title_, title);
 
-			this->frequence_ = frequence;
 			this->is_onlined_ = false;
 		}
 
@@ -75,8 +78,6 @@ namespace dooqu_service
 
 			return ret;
 		}
-
-
 		//对返回的认证内容进行分析，决定用户是否通过认证，同时在这里要做两件事：
 		//1、对用户的信息进行填充
 		//2、对game_info的实例进行填充
@@ -88,11 +89,15 @@ namespace dooqu_service
 
 		int game_plugin::on_befor_client_join(game_client* client)
 		{
+            if(this->clients()->size() >= this->capacity_)
+            {
+                return service_error::GAME_IS_FULL;
+            }
+
 			if (std::strlen(client->id()) > 32 || std::strlen(client->name()) > 32)
 			{
 				return service_error::ARGUMENT_ERROR;
 			}
-
 			//防止用户重复登录
 			game_client_map::iterator curr_client = this->clients_.find(client->id());
 
@@ -244,7 +249,6 @@ namespace dooqu_service
 		{
 			{
 				__lock__(this->clients_lock_, "game_plugin::remove_client_from_plugin");
-
 				this->clients_.erase(client->id());
 			}
 
@@ -358,8 +362,6 @@ namespace dooqu_service
 			{
 				delete [] this->title_;
 			}
-
-			printf("game_plugin destroyed.\n");
 		}
 	}
 }
