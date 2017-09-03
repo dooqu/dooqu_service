@@ -66,10 +66,12 @@ protected:
     virtual void on_check_timeout_clients(const boost::system::error_code &error);
     virtual void on_destroy_clients_in_destroy_list(bool force_destroy);
 
+
     //非虚方法
     void begin_auth(const char* plugin_id, game_client* client, command* cmd);
     void end_auth(const boost::system::error_code& code, const int, const std::string& response_string, http_request* request, const char* plugin_id, game_client* client);
     void dispatch_bye(game_client* client);
+    inline void post_handle_to_another_thread(std::function<void(void)> handle);
 
     //应用层注册
     void client_login_handle(game_client* client, command* command);

@@ -23,7 +23,6 @@ namespace dooqu_service
 			void restart(long long millisecs){ this->start_time_ = microsec_clock::local_time(); this->start_time_ + milliseconds(millisecs); }
 			long long elapsed(){ return (microsec_clock::local_time() - this->start_time_).total_milliseconds(); }
 		};
-
 		*/
 
 		class tick_count : boost::noncopyable

@@ -136,7 +136,6 @@ void game_service::on_init()
 
     this->regist_handle("LOG", make_handler(game_service::client_login_handle));
     this->regist_handle("RLG", make_handler(game_service::robot_login_handle));
-
     //加载所有的所有分区
     for (game_zone_map::iterator curr_zone = this->zones_.begin();
             curr_zone != this->zones_.end(); ++curr_zone)
@@ -265,8 +264,8 @@ void game_service::on_client_leave(game_client* client, int leave_code)
     }
 
     {
-        __lock__(client->status_lock_, "game_service::on_client_leave::status_lock");
-        if(client->is_data_sending_ == false)
+        __lock__(client->send_buffer_lock_, "game_service::on_client_leave::send_buffer_lock_");
+        if(client->read_pos_ == -1)
         {
             this->on_destroy_client(client);
             return;
@@ -290,6 +289,9 @@ void game_service::on_destroy_client(tcp_client* t_client)
 
 void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
 {
+    if(this->client_list_for_destroy_.size() <= 0)
+        return;
+
     __lock__(this->destroy_list_mutex_, "game_service::on_destroy_clients_in_destroy_list");
 
     for(list<game_client*>::iterator e = this->client_list_for_destroy_.begin(); e != this->client_list_for_destroy_.end(); )
@@ -303,7 +305,8 @@ void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
         }
         else
         {
-            if(client->is_data_sending_ == false)
+             __lock__(client->send_buffer_lock_, "game_service::on_destroy_clients_in_destroy_list::send_buffer_lock");
+            if(client->read_pos_ == -1)
             {
                 this->on_destroy_client(client);
                 this->client_list_for_destroy_.erase(e++);
@@ -321,6 +324,7 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
     if (!error && this->is_running_)
     {
         //如果禁用超时检测，请注释return;
+        if(this->clients_.size() > 0)
         {
             __lock__(this->clients_mutex_, "game_service::on_check_timeout_clients::clients_mutex");
             //对所有用户的active时间进行对比，超过20秒还没有登录动作的用户被装进临时数组
@@ -406,7 +410,7 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
     if (this->is_running_ == false)
         return;
 
-    int ret = service_error::OK;
+    int ret = service_error::NO_ERROR;
 
     {
         __lock__(this->clients_mutex_, "game_service::end_auth::clients_mutex");
@@ -428,7 +432,14 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
 
         if(finder != this->plugins_.end())
         {
-            ret = (*finder).second->auth_client(client, response_string);
+            if(client->available() == true)
+            {
+                ret = (*finder).second->auth_client(client, response_string);
+            }
+            else
+            {
+                return;
+            }
         }
         else
         {
@@ -438,14 +449,18 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
     else
     {
         ret = service_error::LOGIN_SERVICE_ERROR;
-        printf("http authentication server error.\n");
     }
 
-    if (ret != service_error::OK)
+    if (ret != service_error::NO_ERROR)
     {
         client->disconnect(ret);
         printf("disconnect client because auth error.\n");
     }
+}
+
+void game_service::post_handle_to_another_thread(std::function<void(void)> handle)
+{
+    this->io_service_.post(handle);
 }
 
 

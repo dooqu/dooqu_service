@@ -22,6 +22,8 @@ void tcp_server::create_worker_thread()
     this->threads_status_[worker_thread->get_id()] = new tick_count();
     worker_threads_.push_back(worker_thread);
 
+    thread_status::instance()->map_status[worker_thread->get_id()] = new std::deque<char*>();
+
     dooqu_service::util::print_success_info("create worker thread {%d}.", worker_thread->get_id());
 }
 

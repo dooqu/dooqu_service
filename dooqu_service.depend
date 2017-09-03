@@ -1,8 +1,8 @@
 # depslib dependency file v1.0
-1489250503 source:/home/jack/cpp_proj/dooqu_service/src/net/tcp_client.cpp
+1504258446 source:/home/jack/cpp_proj/dooqu_service/src/net/tcp_client.cpp
 	"tcp_server.h"
 
-1488893769 /home/jack/cpp_proj/dooqu_service/src/net/tcp_server.h
+1498810939 /home/jack/cpp_proj/dooqu_service/src/net/tcp_server.h
 	<iostream>
 	<map>
 	<vector>
@@ -15,9 +15,10 @@
 	"../util/tick_count.h"
 	"../util/utility.h"
 
-1489246659 /home/jack/cpp_proj/dooqu_service/src/net/tcp_client.h
+1503821023 /home/jack/cpp_proj/dooqu_service/src/net/tcp_client.h
 	<cstdarg>
 	<string>
+	<iostream>
 	<mutex>
 	<functional>
 	<boost/asio.hpp>
@@ -26,29 +27,34 @@
 	"service_error.h"
 	"../util/utility.h"
 
-1488858830 /home/jack/cpp_proj/dooqu_service/src/net/service_error.h
+1503818632 /home/jack/cpp_proj/dooqu_service/src/net/service_error.h
 
-1489595408 /home/jack/cpp_proj/dooqu_service/src/util/utility.h
+1504256654 /home/jack/cpp_proj/dooqu_service/src/util/utility.h
 	<cstdio>
+	<chrono>
 	<stdarg.h>
 	<stdlib.h>
 	"threads_lock_status.h"
 
-1489595576 /home/jack/cpp_proj/dooqu_service/src/util/threads_lock_status.h
+1503839785 /home/jack/cpp_proj/dooqu_service/src/util/threads_lock_status.h
+	<map>
+	<thread>
+	<mutex>
+	<deque>
 
-1488859391 /home/jack/cpp_proj/dooqu_service/src/util/tick_count.h
+1503400457 /home/jack/cpp_proj/dooqu_service/src/util/tick_count.h
 	<chrono>
 	<boost/noncopyable.hpp>
 
-1488894751 source:/home/jack/cpp_proj/dooqu_service/src/net/tcp_server.cpp
+1503746564 source:/home/jack/cpp_proj/dooqu_service/src/net/tcp_server.cpp
 
 1488865372 source:/home/jack/cpp_proj/dooqu_service/src/service/command.cpp
 	<cstring>
 
-1489250259 source:/home/jack/cpp_proj/dooqu_service/src/service/command_dispatcher.cpp
+1504182586 source:/home/jack/cpp_proj/dooqu_service/src/service/command_dispatcher.cpp
 	"game_client.h"
 
-1488865536 /home/jack/cpp_proj/dooqu_service/src/service/game_client.h
+1504182829 /home/jack/cpp_proj/dooqu_service/src/service/game_client.h
 	<iostream>
 	<mutex>
 	"../net/tcp_client.h"
@@ -58,7 +64,7 @@
 	"../util/tick_count.h"
 	"post_monitor.h"
 
-1488865345 /home/jack/cpp_proj/dooqu_service/src/service/game_info.h
+1501410790 /home/jack/cpp_proj/dooqu_service/src/service/game_info.h
 	<boost/noncopyable.hpp>
 
 1488865327 /home/jack/cpp_proj/dooqu_service/src/service/command.h
@@ -74,7 +80,7 @@
 	"../util/utility.h"
 	"../util/char_key_op.h"
 
-1488865363 /home/jack/cpp_proj/dooqu_service/src/service/service_error.h
+1501410782 /home/jack/cpp_proj/dooqu_service/src/service/service_error.h
 	"../net/service_error.h"
 
 1488859521 /home/jack/cpp_proj/dooqu_service/src/util/char_key_op.h
@@ -83,12 +89,12 @@
 1488865548 /home/jack/cpp_proj/dooqu_service/src/service/post_monitor.h
 	"../util/tick_count.h"
 
-1489250428 source:/home/jack/cpp_proj/dooqu_service/src/service/game_client.cpp
+1504264861 source:/home/jack/cpp_proj/dooqu_service/src/service/game_client.cpp
 
-1488865672 source:/home/jack/cpp_proj/dooqu_service/src/service/game_plugin.cpp
+1503822149 source:/home/jack/cpp_proj/dooqu_service/src/service/game_plugin.cpp
 	"game_service.h"
 
-1488865651 /home/jack/cpp_proj/dooqu_service/src/service/game_service.h
+1501344917 /home/jack/cpp_proj/dooqu_service/src/service/game_service.h
 	<set>
 	<queue>
 	<list>
@@ -115,14 +121,15 @@
 	<boost/bind.hpp>
 	<boost/function.hpp>
 
-1488895380 source:/home/jack/cpp_proj/dooqu_service/src/service/game_service.cpp
+1503823207 source:/home/jack/cpp_proj/dooqu_service/src/service/game_service.cpp
 	"game_plugin.h"
 	"game_zone.h"
 
-1489246719 /home/jack/cpp_proj/dooqu_service/src/service/game_plugin.h
+1498962825 /home/jack/cpp_proj/dooqu_service/src/service/game_plugin.h
 	<iostream>
 	<map>
 	<mutex>
+	<memory>
 	<boost/asio/deadline_timer.hpp>
 	<boost/noncopyable.hpp>
 	"command_dispatcher.h"
@@ -133,7 +140,7 @@
 	"../util/utility.h"
 	"../util/char_key_op.h"
 
-1489854323 /home/jack/cpp_proj/dooqu_service/src/service/game_zone.h
+1501410788 /home/jack/cpp_proj/dooqu_service/src/service/game_zone.h
 	<iostream>
 	<cstring>
 	<list>
@@ -147,4 +154,24 @@
 	"game_service.h"
 	"../util/tick_count.h"
 	"../util/utility.h"
+
+1501376045 source:/home/jack/cpp_proj/dooqu_service/src/service/game_zone.cpp
+	<functional>
+
+1469435547 source:/home/jack/cpp_proj/dooqu_service/src/service/post_monitor.cpp
+
+1501345082 source:/home/jack/cpp_proj/dooqu_service/src/service/task_timer.cpp
+	"task_timer.h"
+
+1498285652 /home/jack/cpp_proj/dooqu_service/src/service/task_timer.h
+	<set>
+	<deque>
+	<mutex>
+	"boost/asio.hpp"
+	"boost/pool/singleton_pool.hpp"
+	"../util/tick_count.h"
+	"../util/utility.h"
+
+1501410787 source:/home/jack/cpp_proj/dooqu_service/src/util/utility.cpp
+	"utility.h"
 

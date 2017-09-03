@@ -5,14 +5,14 @@
 
 namespace dooqu_service
 {
-	namespace service
-	{
-		class game_info : boost::noncopyable
-		{
-		public:
-			virtual ~game_info(){};
-		};
-	}
+namespace service
+{
+class game_info : boost::noncopyable
+{
+public:
+    virtual ~game_info() {};
+};
+}
 }
 
 #endif

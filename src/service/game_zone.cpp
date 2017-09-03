@@ -67,7 +67,7 @@ namespace dooqu_service
 		void game_zone::queue_task(std::function<void(void)> callback_handle, int sleep_duration)
 		{
 			//状态锁
-			__lock__(this->status_mutex_, "game_zone::queue_task::status_mutex");
+			//__lock__(this->status_mutex_, "game_zone::queue_task::status_mutex");
 
 			//if (this->game_service_->is_running() && this->is_onlined_)
 			{
@@ -127,7 +127,7 @@ namespace dooqu_service
 			if (!error)
 			{
 				//先锁状态，看game_zone的状态，如果还在running，那么继续处理逻辑，否则处理timer
-				__lock__(this->status_mutex_, "game_zone::task_handle::status_mutex");
+				//__lock__(this->status_mutex_, "game_zone::task_handle::status_mutex");
 
 				//if (this->game_service_->is_running() && this->is_onlined_ == true)
 				{

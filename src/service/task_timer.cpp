@@ -65,6 +65,11 @@ namespace dooqu_service
         //注意：｛如果game_zone所使用的io_service对象被cancel掉，那么用户层所注册的callback_handle是不会被调用的！｝
         task_timer* async_task::queue_task(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled)
         {
+            if(sleep_duration <= 0)
+            {
+                this->io_service_.post(callback_handle);
+                return;
+            }
             //预备timer的指针，并尝试从timer对象池中取出一个空闲的timer进行使用
             //########################################################
             task_timer* curr_timer_ = NULL;
