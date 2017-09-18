@@ -16,45 +16,42 @@ namespace dooqu_service
 {
 	namespace net
 	{
-		template<typename T> class RAIILock
-		{
-		protected:
-			T& mutex_;
-			bool is_locked_;
-		public:
-			RAIILock(T & mutex) : mutex_(mutex)
-			{
-				this->lock();
-			}
-
-			void lock()
-			{
-				this->mutex_.lock();
-				this->is_locked_ = true;
-			}
-
-			void unlock()
-			{
-				this->mutex_.unlock();
-				this->is_locked_ = false;
-			}
-
-			operator bool()
-			{
-				return this->is_locked_;
-			}
-
-			virtual ~RAIILock()
-			{
-				this->unlock();
-			}
-		};
-
 
 		using namespace boost::asio;
 		using namespace boost::asio::ip;
-
-
+//		template<typename T> class RAIILock
+//		{
+//		protected:
+//			T& mutex_;
+//			bool is_locked_;
+//		public:
+//			RAIILock(T & mutex) : mutex_(mutex)
+//			{
+//				this->lock();
+//			}
+//
+//			void lock()
+//			{
+//				this->mutex_.lock();
+//				this->is_locked_ = true;
+//			}
+//
+//			void unlock()
+//			{
+//				this->mutex_.unlock();
+//				this->is_locked_ = false;
+//			}
+//
+//			operator bool()
+//			{
+//				return this->is_locked_;
+//			}
+//
+//			virtual ~RAIILock()
+//			{
+//				this->unlock();
+//			}
+//		};
 
 		class buffer_stream : boost::noncopyable
 		{
@@ -62,8 +59,7 @@ namespace dooqu_service
 			std::vector<char> buffer_;
 			int size_;
 
-		public:
-			//从buffer_stream中向外读取
+		public:			//从buffer_stream中向外读取
 			char* read()
 			{
 				return &*this->buffer_.begin();
@@ -72,34 +68,30 @@ namespace dooqu_service
 			//设定buffer的默认size 和默认值
 			buffer_stream(size_t size) : buffer_(size, 0)
 			{
-				this->size_ = size;
-				//printf("->create buffer_stream.\n");
+				this->size_ = 0;
 			}
 
 			virtual ~buffer_stream()
 			{
-                //std::cout << "~buffer_stream" << std::endl;
+                this->buffer_.clear();
 			}
-
 
 			int size()
 			{
 				return this->size_;
 			}
-
 			//向buffer_stream中写入数据
 			int write(const char* format, va_list arg_ptr)
 			{
-				int buff_size = this->buffer_.size();
+				int bytes_readed = vsnprintf(read(), this->buffer_.size(), format, arg_ptr);
 
-				int n = vsnprintf(read(), this->buffer_.capacity(), format, arg_ptr);
-
-				if (n != -1)
+				if (bytes_readed >= this->buffer_.size())
 				{
-					this->size_ = n;
+					return -1;
 				}
 
-				return n;
+				this->size_ = bytes_readed;
+				return bytes_readed;
 			}
 
 			int capacity()
@@ -110,7 +102,6 @@ namespace dooqu_service
 			void double_size()
 			{
 				this->buffer_.resize(this->buffer_.size() * 2, 0);
-				this->size_ = this->buffer_.size();
 			}
 
 			char* at(int pos)
@@ -130,6 +121,7 @@ namespace dooqu_service
 				return this->size_ == -1;
 			}
 		};
+
 
 		class tcp_server;
 

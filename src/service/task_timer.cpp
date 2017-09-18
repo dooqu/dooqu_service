@@ -43,7 +43,6 @@ namespace dooqu_service
                     //this->free_timers_.at(i)->cancel();
 
                     task_timer* curr_timer = this->free_timers_.at(i);
-
                     //printf("~async_task freeing dispose:%d\n", curr_timer);
 
                     curr_timer->~task_timer();
@@ -108,7 +107,6 @@ namespace dooqu_service
             }
 
             return curr_timer_;
-
         }
 
 
@@ -128,16 +126,12 @@ namespace dooqu_service
                     this->working_timers_.erase(timer);
                 }
 
-                //printf("cancel_task dispose:%d\n", timer);
                 timer->~task_timer();
-                        //delete free_timer;
+                //        delete free_timer;
                 boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer);
-
                 return true;
             }
-
             //如果==0， 已经在task_handle那边销毁了
-
             return false;
         }
 
@@ -169,7 +163,6 @@ namespace dooqu_service
                     if(curr_free_timer->is_cancel_eanbled())
                     {
                         curr_free_timer->~task_timer();
-                        //delete free_timer;
                         boost::singleton_pool<task_timer, sizeof(task_timer)>::free(curr_free_timer);
                     }
                     else
@@ -190,11 +183,7 @@ namespace dooqu_service
             //如果当前的io操作还正常
             if (!error)
             {
-                //先锁状态，看game_zone的状态，如果还在running，那么继续处理逻辑，否则处理timer
-                //__lock__(this->status_mutex_, "game_zone::task_handle::status_mutex");
                 {
-                    //#######此处  代码处理用完的timer，返还给队列池##########
-                    //#################################################
                     __lock__(this->working_timers_mutex_, "game_zone::task_handle::working_timers_mutex");
                     this->working_timers_.erase(timer_);
                 }
@@ -224,7 +213,6 @@ namespace dooqu_service
                 }
                 else
                 {
-                    //printf("handle cancel dispose :%d\n", timer_);
                     timer_->~task_timer();
                     boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer_);
                 }

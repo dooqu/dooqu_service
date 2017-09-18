@@ -21,15 +21,10 @@ namespace dooqu_service
 
 		void game_zone::load()
 		{
-			//状态锁
-			__lock__(this->status_mutex_, "game_zone::load");
-
 			if (this->is_onlined_ == false)
 			{
 				this->is_onlined_ = true;
-
 				this->on_load();
-
 				print_success_info("zone {%s} loaded.", this->get_id());
 			}
 		}
@@ -37,14 +32,10 @@ namespace dooqu_service
 
 		void game_zone::unload()
 		{
-			__lock__(this->status_mutex_, "game_zone::unload");
-
 			if (this->is_onlined_ == true)
 			{
 				this->is_onlined_ = false;
-
 				this->on_unload();
-
                 print_success_info("zone {%s} unloaded.", this->get_id());
 			}
 		}
@@ -58,49 +49,32 @@ namespace dooqu_service
 		void game_zone::on_unload()
 		{
 		}
-
-
 		//启动一个指定延时的回调操作，因为timer对象要频繁的实例化，所以采用deque的结构对timer对象进行池缓冲
 		//queue_task会从deque的头部弹出有效的timer对象，用完后，从新放回的头部，这样deque头部的对象即为活跃timer
 		//如timer对象池中后部的对象长时间未被使用，说明当前对象被空闲，可以回收。
 		//注意：｛如果game_zone所使用的io_service对象被cancel掉，那么用户层所注册的callback_handle是不会被调用的！｝
 		void game_zone::queue_task(std::function<void(void)> callback_handle, int sleep_duration)
 		{
-			//状态锁
-			//__lock__(this->status_mutex_, "game_zone::queue_task::status_mutex");
-
-			//if (this->game_service_->is_running() && this->is_onlined_)
 			{
-				//预备timer的指针，并尝试从timer对象池中取出一个空闲的timer进行使用
-				//########################################################
 				timer* curr_timer_ = NULL;
 				{
-					//队列上锁，先检查队列中是否有可用的timer
 					__lock__(this->free_timers_mutex_,  "game_zone::queue_task::free_timers_mutex");
-
 					if (this->free_timers_.size() > 0)
 					{
 						curr_timer_ = this->free_timers_.front();
 						this->free_timers_.pop_front();
-
 						if (game_zone::LOG_TIMERS_INFO)
 						{
 							printf("{%s} use the existed timer of 1 / %d : %d.\n", this->get_id(), this->free_timers_.size(), this->working_timers_.size());
 						}
 					}
 				}
-				//########################################################
 
 				//如果对象池中无有效的timer对象，再进行实例化
 				if (curr_timer_ == NULL)
 				{
 					void* timer_mem = boost::singleton_pool<timer, sizeof(timer)>::malloc();
-					curr_timer_ = new(timer_mem)timer(this->game_service_->get_io_service());
-
-					if (game_zone::LOG_TIMERS_INFO)
-					{
-						//printf("##################>new timer");
-					}
+					curr_timer_ = new(timer_mem) timer(this->game_service_->get_io_service());
 				}
 
 				{
@@ -140,13 +114,10 @@ namespace dooqu_service
 
 					{
 						__lock__(this->free_timers_mutex_, "game_zone::task_handle::free_timers_mutex");
-
 						//将用用完的timer返回给队列池，放在池的前部
 						this->free_timers_.push_front(timer_);
-
 						//标记最后的激活时间
 						timer_->last_actived_time.restart();
-
 						//从后方检查栈队列中最后的元素是否是空闲了指定时间
 						if (this->free_timers_.size() > MIN_ACTIVED_TIMER
 							&& this->free_timers_.back()->last_actived_time.elapsed() > MAX_TIMER_FREE_TICK)
@@ -163,13 +134,8 @@ namespace dooqu_service
 							boost::singleton_pool<timer, sizeof(timer)>::free(free_timer);
 						}
 					}
-					//########处理timer完毕###############################
-					//###################################################
-
 					//回调上层逻辑callback
 					callback_handle();
-					//返回不执行后续逻辑
-					return;
 				}
 			}
 

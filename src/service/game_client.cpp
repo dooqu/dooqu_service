@@ -23,6 +23,7 @@ game_client::game_client(io_service& ios) :
 
 game_client::~game_client()
 {
+    //std::cout << "销毁~game_client->" << this->id() << std::endl;
 }
 
 /*
@@ -60,6 +61,7 @@ void game_client::on_data_received(const boost::system::error_code& error, size_
     }
     else
     {
+        ___lock___(this->commander_mutex_, "game_client::on_data_received.commander_mutex_");
         this->available_ = false;
         this->on_error(service_error::CLIENT_NET_ERROR);
     }
@@ -124,7 +126,7 @@ void game_client::dispatch_data(char* command_data)
     {
         assert(this->curr_dispatcher_thread_id_ != &std::this_thread::get_id());
 
-        char* command_data_clone = new char[command_data_len + 1];
+        char* command_data_clone = (char*)malloc(command_data_len + 1);//new char[command_data_len + 1];
         std::strcpy(command_data_clone, command_data);
         command_data_clone[std::strlen(command_data)] = 0;
         this->commander_mutex_.unlock();
@@ -138,7 +140,8 @@ void game_client::simulate_command_process(char* command_data)
     {
         this->cmd_dispatcher_->simulate_client_data(this, command_data);
     }
-    delete [] command_data;
+    //delete [] command_data;
+    free(command_data);
 }
 
 
@@ -167,7 +170,7 @@ void game_client::disconnect(int code)
     if (this->available())
     {
         this->error_code_ = code;
-        this->write("ERR %d%c", this->error_code_, NULL);        //this->disconnect_when_io_end();
+        //this->write("ERR %d%c", this->error_code_, NULL);        //this->disconnect_when_io_end();
 
         this->disconnect();
     }

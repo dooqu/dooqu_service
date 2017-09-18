@@ -139,7 +139,10 @@ public:
         return this->frequence_;
     }
 
-    virtual void config(plugin_config_map& configs) { printf("base config");}
+    virtual void config(plugin_config_map& configs)
+    {
+        printf("base config");
+    }
 
     void broadcast(char* message, bool asynchronized = true);
 };

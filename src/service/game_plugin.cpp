@@ -217,6 +217,11 @@ void game_plugin::unload()
             }
         }
 
+        while(this->clients()->size() > 0)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
         print_success_info("plugin {%s} unloaded.", this->game_id());
     }
 }

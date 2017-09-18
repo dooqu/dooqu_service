@@ -13,27 +13,28 @@ long tcp_client::CURR_SEND_TOTAL = 0;
 tcp_client::tcp_client(io_service& ios)
     : ios(ios),
       t_socket(ios),
-//			send_buffer_sequence_(3, buffer_stream(MAX_BUFFER_SIZE))
+      //send_buffer_sequence_(MAX_BUFFER_SEQUENCE_SIZE / 2),
       read_pos_(-1), write_pos_(0),
       buffer_pos(0),
       available_(false)
 {
     this->p_buffer = &this->buffer[0];
-    memset(this->buffer, 0, sizeof(MAX_BUFFER_SIZE));
+    memset(this->buffer, 0, sizeof(char) * MAX_BUFFER_SIZE);
+
+    //this->send_buffer_sequence_.reserve(MAX_BUFFER_SEQUENCE_SIZE / 2);
+    for(int i = 0; i < 8; i++)
+    {
+        void* vb = malloc(sizeof(buffer_stream));
+        buffer_stream* curr_buffer = new(vb) buffer_stream(MAX_BUFFER_SIZE);
+        this->send_buffer_sequence_.push_back(curr_buffer);
+    }
 }
 
 
 void tcp_client::read_from_client()
 {
-//    __lock__(this->status_lock_, "tcp_client::read_from_client");
-//
-//    if (this->available() == false)
-//        return;
-
-    //std::cout << "tcp_client::read_from_client" << std::endl;
     this->t_socket.async_read_some(boost::asio::buffer(this->p_buffer, tcp_client::MAX_BUFFER_SIZE - this->buffer_pos),
                                    std::bind(&tcp_client::on_data_received, this, std::placeholders::_1, std::placeholders::_2));
-
 }
 
 
@@ -47,31 +48,26 @@ bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
         //得到当前的send_buffer
         *buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
         this->write_pos_++;
-
         return true;
     }
     else
     {
         //如果指向的位置不存在，需要新申请对象；
         //如果已经存在了超过16个对象，说明网络异常那么断开用户；不再新申请数据;
-        if (this->send_buffer_sequence_.size() > MAX_BUFFER_SEQUENCE_SIZE)
+        if (this->send_buffer_sequence_.size() >= MAX_BUFFER_SEQUENCE_SIZE)
         {
             *buffer_alloc = NULL;
             return false;
         }
-
-        void* buffer_mem = boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::malloc();
-        buffer_stream* curr_buffer = new(buffer_mem) buffer_stream(MAX_BUFFER_SIZE);
-
-        //将新申请的消息承载体推入队列，注意插入的是栈类型，会引发复制构造函数,已经内建了n个
+        //void* buffer_mem = boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::malloc();
+        // buffer_stream* curr_buffer = new(buffer_mem) buffer_stream(MAX_BUFFER_SIZE);
+        void* vb = malloc(sizeof(buffer_stream));
+        buffer_stream* curr_buffer = new(vb) buffer_stream(MAX_BUFFER_SIZE);
         this->send_buffer_sequence_.push_back(curr_buffer);
-
         //将写入指针指向下一个预置位置
         this->write_pos_ = this->send_buffer_sequence_.size() - 1;
-
         //得到当前的send_buffer/
         *buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
-
         this->write_pos_++;
 
         return true;
@@ -81,7 +77,6 @@ bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
 
 void tcp_client::write(char* data)
 {
-    //默认调用的是异步的写
     this->write("%s%c", data, NULL);
 }
 
@@ -96,45 +91,57 @@ void tcp_client::write(const char* format, ...)
         return;
     }
 
-    //代码到这里 send_buffer已经获取到，下面准备向内填写数据;
-    int buff_size = 0;
-    int try_count = MAX_BUFFER_SIZE_DOUBLE_TIMES;
-
-    do
+    for(;;)
     {
-        if (try_count < MAX_BUFFER_SIZE_DOUBLE_TIMES)
-        {
-            curr_buffer->double_size();
-        }
-
         va_list arg_ptr;
         va_start(arg_ptr, format);
-
-        buff_size = curr_buffer->write(format, arg_ptr);
-
+        int bytes_writed = curr_buffer->write(format, arg_ptr);
         va_end(arg_ptr);
 
+        if(bytes_writed == -1)
+        {
+            curr_buffer->double_size();
+            continue;
+        }
+        break;
     }
-    while ((buff_size == -1 ||
-            (curr_buffer->size() == curr_buffer->capacity() && *curr_buffer->at(curr_buffer->size() - 1) != 0)) && try_count-- > 0);
 
 
-    if (buff_size == -1)
-    {
-        printf("ERROR: server message queue limited,the message can not be send.\n");
-        this->write_pos_--;
-        return;
-    }
+    //代码到这里 send_buffer已经获取到，下面准备向内填写数据;
+    //int buff_size = 0;
+    //int try_count = MAX_BUFFER_SIZE_DOUBLE_TIMES;
+
+//    do
+//    {
+//        if (try_count < MAX_BUFFER_SIZE_DOUBLE_TIMES)
+//        {
+//            curr_buffer->double_size();
+//        }
+//
+//        va_list arg_ptr;
+//        //va_start(arg_ptr, format);
+//        buff_size = curr_buffer->write(format, arg_ptr);
+//        //va_end(arg_ptr);
+//
+//    }
+//    while ((buff_size == -1 ||
+//            (curr_buffer->size() == curr_buffer->capacity() && *curr_buffer->at(curr_buffer->size() - 1) != 0)) && try_count-- > 0);
+
+
+//    if (buff_size == -1)
+//    {
+//        printf("ERROR: server message queue limited,the message can not be send.\n");
+//        this->write_pos_--;
+//        return;
+//    }
 
     //如果正在发送的索引为-1，说明空闲
     if (read_pos_ == -1)
     {
-        read_pos_++;
-        //std::cout << curr_buffer->read() << std::endl;
         //只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
+        read_pos_++;
         boost::asio::async_write(this->t_socket, boost::asio::buffer(curr_buffer->read(), curr_buffer->size()),
                                  std::bind(&tcp_client::send_handle, this, std::placeholders::_1));
-
         this->is_data_sending_ = true;
     }
     //printf("END send\n");
@@ -146,13 +153,8 @@ void tcp_client::write(const char* format, ...)
 ///实现采用一个发送的数据报队列，按数据报进行依次的发送,靠回调来驱动循环发送，直到当次队列中的数据全部发送完毕；
 void tcp_client::send_handle(const boost::system::error_code& error)
 {
-    //std::cout << "START:send_handle" <<  "{"  << std::endl;
-    //__lock__(this->status_lock_, "tcp_client::send_handle::status_lock_");
-    //发送队列是顺序发送的， 如果当前的数据队列的包发送错误，队列包不再向下继续发送处理，状态制订，返回
-    //不对status进行判定， 只要进入队列的都争取进行发送，如果socket已经不可用，下次的send_handle回调回结束循环
     if (error)
     {
-        //如果error为true，说明该客户端socket已经关闭，
         __lock__(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
         read_pos_ = -1;
         write_pos_ = 0;
@@ -160,19 +162,9 @@ void tcp_client::send_handle(const boost::system::error_code& error)
         return;
     }
 
-    //不对status进行判定， 只要进入队列的都争取进行发送，如果socket已经不可用，下次的send_handle回调回结束循环
-    //std::cout << "START:send_handle_inlock" << std::endl;
-//    这里考虑下极限情况，如果this已经被销毁？
-//    if (this->available() == false)
-//    {
-//        this->is_data_sending_ = false;
-//        return;
-//    }
-
     __lock__(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
 
     buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
-
     if (read_pos_ >= (write_pos_ - 1))
     {
         read_pos_ = -1;
@@ -183,47 +175,10 @@ void tcp_client::send_handle(const boost::system::error_code& error)
     {
         read_pos_++;
         buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
-
-//        if (curr_buffer->is_bye_signal())
-//        {
-//            this->is_data_sending_ = false;
-//            this->disconnect();
-//            return;
-//        }
-
         boost::asio::async_write(this->t_socket, boost::asio::buffer(curr_buffer->read(), curr_buffer->size()),
                                  std::bind(&tcp_client::send_handle, this, std::placeholders::_1));
     }
 }
-
-
-/*
-disconnect_when_io_end不直接对外提供调用，在状态锁放买你，外部调用一定要保障已经
-调用了status_lock锁，防止死锁,因为在disconnect中对status_lock 进行了锁定
-*/
-//void tcp_client::disconnect_when_io_end()
-//{
-//    if (this->available() == false)
-//        return;
-//
-//    {
-//        __lock__(this->send_buffer_lock_, "tcp_client::disconnection_when_io_end");
-//
-//        //如果有要发送的数据，那么新申请一个离开的信号数据包，并加到数据发送队列中
-//        if (this->read_pos_ != -1)
-//        {
-//            buffer_stream* curr_buffer = NULL;
-//            bool alloc_ret = this->alloc_available_buffer(&curr_buffer);
-//
-//            if (alloc_ret)
-//            {
-//                curr_buffer->set_bye_signal();
-//                return;
-//            }
-//        }
-//    }
-//    //如果没有要发送的数据，那么立即断开
-//}
 
 
 void tcp_client::on_data_received(const boost::system::error_code& error, size_t bytes_received)
@@ -237,10 +192,15 @@ tcp_client::~tcp_client()
     this->t_socket.close(err_code);
     {
         __lock__(this->send_buffer_lock_, "tcp_client::~tcp_client::lock");
-        for(std::vector<buffer_stream*>::iterator e = this->send_buffer_sequence_.begin(); e != this->send_buffer_sequence_.end(); ++e)
+        int size = this->send_buffer_sequence_.size();
+
+        for(int i = 0; i < size ; i++)
         {
-            (*e)->~buffer_stream();
-            boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::free(*e);
+//            (*e)->~buffer_stream();
+//            boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::free(*e);
+            buffer_stream* buffer = this->send_buffer_sequence_.at(i);
+            buffer->~buffer_stream();
+            free(buffer);
         }
 
         this->send_buffer_sequence_.clear();

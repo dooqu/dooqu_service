@@ -22,7 +22,7 @@ void tcp_server::create_worker_thread()
     this->threads_status_[worker_thread->get_id()] = new tick_count();
     worker_threads_.push_back(worker_thread);
 
-    thread_status::instance()->map_status[worker_thread->get_id()] = new std::deque<char*>();
+    //thread_status::instance()->map_status[worker_thread->get_id()] = new std::deque<char*>();
 
     dooqu_service::util::print_success_info("create worker thread {%d}.", worker_thread->get_id());
 }
@@ -44,34 +44,39 @@ void tcp_server::start()
 
     if (this->is_running_ == false)
     {
-        this->work_mode_ = new io_service::work(this->io_service_);
-        //注意on_init中，isrunning = false;
-        this->on_init();
-
-        this->is_running_ = true;
-
         if(acceptor.is_open() == false)
         {
             tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), this->port_);
             acceptor.open(endpoint.protocol());
             //acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-            acceptor.bind(endpoint);
+
+            boost::system::error_code error;
+            acceptor.bind(endpoint, error);
+
+            if(error)
+            {
+                std::cout << "server not started, addressbind error:" << error.message() << std::endl;
+                return;
+            }
             acceptor.listen();
         }
 
+        this->on_start();
+        this->work_mode_ = new io_service::work(this->io_service_);
+        this->is_running_ = true;
+
         int thread_concurrency_count = std::thread::hardware_concurrency() + 1;
-        //开始工作者线程
         for (int i = 0; i < thread_concurrency_count; i++)
         {
             this->create_worker_thread();
         }
-        //投递 {MAX_ACCEPTION_NUM} 个accept动作
+
         for (int i = 0; i < thread_concurrency_count; i++)
         {
             this->start_accept();
         }
 
-        this->on_start();
+        this->on_started();
     }
 }
 
@@ -82,7 +87,18 @@ void tcp_server::stop_accept()
     {
         boost::system::error_code error;
         this->acceptor.cancel(error);
-        this->acceptor.close(error);
+
+        if(error)
+        {
+            std::cout << "cancel error:" << error.message() << std::endl;
+        }
+
+//        this->acceptor.close(error);
+//
+//        if(error)
+//        {
+//            std::cout << "close error:" << error.message() << std::endl;
+//        }
 
         this->is_accepting_ = false;
     }
@@ -115,19 +131,17 @@ void tcp_server::stop()
             printf("\r                                   \r");
             dooqu_service::util::print_success_info("worker thread {%d} returned.", this->worker_threads_.at(i)->get_id());
         }
-
         //所有线程上的事件都已经执行完毕后， 安全的停止io_service;
         this->io_service_.stop();
         //重置io_service，以备后续可能的tcp_server.start()的再次调用。
         this->io_service_.reset();
+        this->on_stoped();
+
+        boost::system::error_code error;
+        this->acceptor.close(error);
 
         dooqu_service::util::print_success_info("service stoped successfully.");
     }
-}
-
-
-void tcp_server::on_init()
-{
 }
 
 
@@ -136,10 +150,19 @@ void tcp_server::on_start()
 }
 
 
+void tcp_server::on_started()
+{
+}
+
+
 void tcp_server::on_stop()
 {
 }
 
+
+void tcp_server::on_stoped()
+{
+}
 
 void tcp_server::accept_handle(const boost::system::error_code& error, tcp_client* client)
 {
@@ -175,6 +198,7 @@ tcp_server::~tcp_server()
     //boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::release_memory();
     for (int i = 0; i < worker_threads_.size(); i++)
     {
+        delete threads_status_[worker_threads_.at(i)->get_id()];
         delete worker_threads_.at(i);
     }
 }

@@ -130,7 +130,7 @@ bool game_service::unload_plugin(game_plugin* plugin, int seconds_for_wait_compl
 }
 
 
-void game_service::on_init()
+void game_service::on_start()
 {
     std::srand((unsigned)time(NULL));
 
@@ -155,7 +155,7 @@ void game_service::on_init()
 }
 
 
-void game_service::on_start()
+void game_service::on_started()
 {
     this->check_timeout_timer.expires_from_now(boost::posix_time::seconds(5));
     this->check_timeout_timer.async_wait(std::bind(&game_service::on_check_timeout_clients, this, std::placeholders::_1));
@@ -179,8 +179,6 @@ void game_service::on_stop()
         }
     }
 
-    this->on_destroy_clients_in_destroy_list(true);
-
     {
         __lock__(this->plugins_mutex_, "game_service::on_stop::plugins_mutex");
         //停止所有的游戏逻辑
@@ -199,6 +197,11 @@ void game_service::on_stop()
     {
         (*curr_zone).second->unload();
     }
+}
+
+void game_service::on_stoped()
+{
+    on_destroy_clients_in_destroy_list(true);
 }
 
 
@@ -298,6 +301,7 @@ void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
     {
         game_client* client = *e;
 
+        std::cout << "destroy one client in destroy list." << std::endl;
         if(force_destroy)
         {
             this->on_destroy_client(client);
@@ -305,7 +309,7 @@ void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
         }
         else
         {
-             __lock__(client->send_buffer_lock_, "game_service::on_destroy_clients_in_destroy_list::send_buffer_lock");
+            __lock__(client->send_buffer_lock_, "game_service::on_destroy_clients_in_destroy_list::send_buffer_lock");
             if(client->read_pos_ == -1)
             {
                 this->on_destroy_client(client);
@@ -432,6 +436,7 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
 
         if(finder != this->plugins_.end())
         {
+            ___lock___(client->commander_mutex_, "game_service::end_auth. client->commander_mutex");
             if(client->available() == true)
             {
                 ret = (*finder).second->auth_client(client, response_string);
@@ -517,7 +522,6 @@ void game_service::client_login_handle(game_client* client, command* command)
     if (it != this->plugins_.end())
     {
         client->fill(command->params(1), command->params(1), NULL);
-
         game_plugin* plugin = (*it).second;
         //设定plugin_addr_地址，防止用户重复发送LOG命令
         client->plugin_addr_ = reinterpret_cast<int>(plugin);
@@ -542,14 +546,10 @@ game_service::~game_service()
     {
         this->stop();
     }
-    //销毁所有的游戏插件
-//			for (game_plugin_map::iterator curr_game = this->plugins_.begin();
-//			curr_game != this->plugins_.end(); ++curr_game)
-//			{
-//				delete (*curr_game).second;
-//			}
-    this->plugins_.clear();
 
+    on_destroy_clients_in_destroy_list(true);
+
+    this->plugins_.clear();
     //销毁所有的游戏区
     for (game_zone_map::iterator curr_zone = this->zones_.begin();
             curr_zone != this->zones_.end(); ++curr_zone)
@@ -577,9 +577,11 @@ game_service::~game_service()
         this->free_http_request((*pos_http_request++));
     }
 
+
     boost::singleton_pool<game_client, sizeof(game_client)>::purge_memory();
     boost::singleton_pool<http_request, sizeof(http_request)>::purge_memory();
     boost::singleton_pool<timer, sizeof(timer)>::purge_memory();
+    boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::purge_memory();
 }
 }
 }

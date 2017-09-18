@@ -51,9 +51,10 @@ protected:
     virtual void on_client_connected(tcp_client* client) = 0;
     virtual void on_destroy_client(tcp_client*) = 0;
 
-    virtual void on_init();
     virtual void on_start();
+    virtual void on_started();
     virtual void on_stop();
+    virtual void on_stoped();
 
 public:
 

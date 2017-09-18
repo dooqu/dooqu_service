@@ -55,9 +55,10 @@ protected:
     std::recursive_mutex http_request_mutex_;
 
 
-    virtual void on_init();
     virtual void on_start();
+    virtual void on_started();
     virtual void on_stop();
+    virtual void on_stoped();
     inline virtual void on_client_command(game_client* client, command* command);
     virtual tcp_client* on_create_client();
     virtual void on_client_connected(tcp_client* client);

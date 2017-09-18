@@ -60,12 +60,10 @@ public:
     }
 };
 
-#define __lock__(state, message) \
-    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
+#define __lock__(state, message)    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
 
 
-#define ___lock___(state, message) \
-    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
+#define ___lock___(state, message)   std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
 
 //#define __lock__(state, message) \
 //    thread_status::instance()->wait("WAITING->"#message);\
