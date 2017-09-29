@@ -26,6 +26,7 @@ class game_client : public dooqu_service::net::tcp_client
     friend class command_dispatcher;
 private:
     void simulate_command_process(char* command_data);
+    char* update_url_;
 protected:
     enum {ID_LEN = 16, NAME_LEN = 32, UP_RE_TIMES = 3};
     game_info* game_info_;

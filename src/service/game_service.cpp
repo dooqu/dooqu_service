@@ -152,6 +152,15 @@ void game_service::on_start()
             (*curr_game)->load();
         }
     }
+
+    auth_request_block_ = malloc(sizeof(http_request) * MAX_AUTH_SESSION_COUNT);
+    update_request_block_ = malloc(sizeof(http_request) * MAX_AUTH_SESSION_COUNT);
+
+    for(int i = 0; i < MAX_AUTH_SESSION_COUNT; i++)
+    {
+        this->auth_request_pool_.push(auth_request_block_ + (i * sizeof(http_request)));
+        this->update_request_pool_.push(update_request_block_ + (i * sizeof(http_request)));
+    }
 }
 
 
@@ -229,9 +238,10 @@ void game_service::on_client_command(game_client* client, command* command)
 
 tcp_client* game_service::on_create_client()
 {
-    void* client_mem = boost::singleton_pool<game_client, sizeof(game_client)>::malloc();
-
+    //std::cout << "创建game_client at MAIN." << std::endl;
+    void* client_mem = memory_pool_malloc<game_client>();//boost::singleton_pool<game_client, sizeof(game_client)>::malloc();
     return new(client_mem) game_client(this->get_io_service());
+    //return new game_client(this->get_io_service());
 }
 
 
@@ -286,15 +296,14 @@ void game_service::on_client_leave(game_client* client, int leave_code)
 void game_service::on_destroy_client(tcp_client* t_client)
 {
     game_client* client = (game_client*)t_client;
+    //std::cout << "destroy client at MAIN." << std::endl;
     client->~game_client();
-    boost::singleton_pool<game_client, sizeof(game_client)>::free(client);
+    memory_pool_free<game_client>(client);
+    //boost::singleton_pool<game_client, sizeof(game_client)>::free(client);
 }
 
 void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
 {
-    if(this->client_list_for_destroy_.size() <= 0)
-        return;
-
     __lock__(this->destroy_list_mutex_, "game_service::on_destroy_clients_in_destroy_list");
 
     for(list<game_client*>::iterator e = this->client_list_for_destroy_.begin(); e != this->client_list_for_destroy_.end(); )
@@ -379,38 +388,63 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
     }
 }
 
-
-void game_service::begin_auth(const char* plugin_id, game_client* client, command* cmd)
+bool game_service::start_auth_request(const char* host, const char* path, req_callback callback)
 {
-//            void* http_req_mem = this->get_http_request();
-//            if (http_req_mem == NULL)
-//            {
-//                client->disconnect(service_error::LOGIN_CONCURENCY_LIMIT);
-//                return;
-//            }
-//
-//            http_request* request = new(request_mem)http_request(this->get_io_service(),
-//            "127.0.0.1",
-//            "/auth.aspx",
-//            boost::bind(&game_service::end_auth, this, _1, _2, _3, (http_request*)request_mem, plugin, client));
-//            如果需要不请求http server请拿掉此注释
-//
-//
-//            分配http_request的对象内存
-//            void* request_mem = this->get_http_request();
+    void* req_block = this->get_auth_request();
 
-    this->io_service_.post(boost::bind(&game_service::end_auth, this, boost::asio::error::eof, 200, std::string(), (http_request*)NULL, plugin_id, client));
-    //this->end_auth(boost::asio::error::eof, 200, std::string(), NULL, plugin, client);
-    //http_request* request = new(request_mem)http_request(this->get_io_service(),
-    //	"127.0.0.1",
-    //	"/auth.aspx",
-    //	boost::bind(&game_service::end_auth, this, _1, _2, _3, (http_request*)request_mem, plugin, client));
+    if(req_block == NULL)
+        return false;
+
+    http_request* request = new(req_block) http_request(this->get_io_service(),
+            host,
+            path,
+            std::bind(&game_service::auth_request_handle, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, (http_request*)req_block, callback));
+
+    return true;
+}
+
+void game_service::auth_request_handle(const boost::system::error_code& err, const int status_code, const string& response, http_request* req, req_callback callback)
+{
+    req->~http_request();
+    this->release_auth_request(req);
+
+    callback(err, status_code, response);
+}
+
+void* game_service::get_auth_request()
+{
+    ___lock___(this->auth_request_mutex_, "get_request_for_auth");
+
+    if(this->auth_request_pool_.empty())
+        return NULL;
+
+    void* req = this->auth_request_pool_.front();
+    this->auth_request_pool_.pop();
+
+    return req;
+}
+
+void game_service::release_auth_request(void* request)
+{
+    ___lock___(this->auth_request_mutex_, "get_request_for_auth");
+    this->auth_request_pool_.push(request);
+}
+
+void game_service::begin_auth(game_plugin* plugin, game_client* client, command* cmd)
+{
+    const char* game_id = plugin->game_id();
+    req_callback f = std::bind(&game_service::end_auth, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, game_id, client);
+    bool ret = this->start_auth_request("127.0.0.1", "/", f);
+
+    if(ret == false)
+    {
+        client->disconnect(service_error::LOGIN_CONCURENCY_LIMIT);
+    }
 }
 
 
-void game_service::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, http_request* request, const char* plugin_id, game_client* client)
+void game_service::end_auth(const boost::system::error_code& code, const int status_code, const std::string& response_string, const char* plugin_id, game_client* client)
 {
-    //this->free_http_request(request);
     if (this->is_running_ == false)
         return;
 
@@ -469,35 +503,21 @@ void game_service::post_handle_to_another_thread(std::function<void(void)> handl
 }
 
 
-http_request* game_service::get_http_request()
-{
-    __lock__(this->http_request_mutex_, "game_service::get_http_request");
-
-    if (this->http_request_working_.size() > MAX_AUTH_SESSION_COUNT)
-    {
-        return NULL;
-    }
-    void* request_mem = boost::singleton_pool<http_request, sizeof(http_request)>::malloc();
-    //http_request* request = new(request_mem) http_request();
-    this->http_request_working_.insert((http_request*)request_mem);
-
-    return (http_request*)request_mem;
-}
-
-
-void game_service::free_http_request(http_request* request)
-{
-    {
-        __lock__(this->http_request_mutex_, "game_service::free_http_request");
-        //这里要确认http_request对象的访问还合法， 极限情况，在on_stop中已经销毁掉了。
-        //if (this->http_request_working_.find(request) != this->http_request_working_.end())
-        {
-            this->http_request_working_.erase(request);
-        }
-    }
-    //request->~http_request();
-    boost::singleton_pool<http_request, sizeof(http_request)>::free((void*)request);
-}
+//void game_service::queue_http_request(char* host, char* path, std::function callback)
+//{
+//
+//}
+//
+//void* game_service::malloc_http_request(char* host, char* url, std::function callback)
+//{
+//
+//}
+//
+//
+//void game_service::free_http_request(http_request* request)
+//{
+//
+//}
 
 
 void game_service::client_login_handle(game_client* client, command* command)
@@ -526,7 +546,7 @@ void game_service::client_login_handle(game_client* client, command* command)
         //设定plugin_addr_地址，防止用户重复发送LOG命令
         client->plugin_addr_ = reinterpret_cast<int>(plugin);
         //把目标plugin的id带上，在回调函数中要再次检查plugin是否还在
-        this->begin_auth(plugin->game_id(), client, command);
+        this->begin_auth(plugin, client, command);
     }
     else
     {
@@ -568,20 +588,21 @@ game_service::~game_service()
     this->threads_status_.clear();
 
     //清理未返回的http_request对象
-    __lock__(this->http_request_mutex_, "~game_servcie::http_request_mutex");
-    for (std::set<http_request*>::iterator pos_http_request = this->http_request_working_.begin();
-            pos_http_request != this->http_request_working_.end();)
-    {
-        //这里一定要注意写法，因为这里是边遍历、边删除
-        //pos_http_request++返回一个临时对象， 对临时对象删除，并自动向下指向
-        this->free_http_request((*pos_http_request++));
-    }
+//    __lock__(this->http_request_mutex_, "~game_servcie::http_request_mutex");
+//    for (std::set<http_request*>::iterator pos_http_request = this->http_request_working_.begin();
+//            pos_http_request != this->http_request_working_.end();)
+//    {
+//        //这里一定要注意写法，因为这里是边遍历、边删除
+//        //pos_http_request++返回一个临时对象， 对临时对象删除，并自动向下指向
+//        this->free_http_request((*pos_http_request++));
+//    }
 
-
-    boost::singleton_pool<game_client, sizeof(game_client)>::purge_memory();
-    boost::singleton_pool<http_request, sizeof(http_request)>::purge_memory();
-    boost::singleton_pool<timer, sizeof(timer)>::purge_memory();
-    boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::purge_memory();
+    free(this->auth_request_block_);
+    free(this->update_request_block_);
+//    boost::singleton_pool<game_client, sizeof(game_client)>::purge_memory();
+//    boost::singleton_pool<http_request, sizeof(http_request)>::purge_memory();
+//    boost::singleton_pool<timer, sizeof(timer)>::purge_memory();
+//    boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::purge_memory();
 }
 }
 }

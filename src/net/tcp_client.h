@@ -109,17 +109,17 @@ namespace dooqu_service
 				return &this->buffer_.at(pos);
 			}
 
-			void set_bye_signal()
-			{
-				this->buffer_.clear();
-				this->buffer_.resize(0);
-				this->size_ = -1;
-			}
-
-			bool is_bye_signal()
-			{
-				return this->size_ == -1;
-			}
+//			void set_bye_signal()
+//			{
+//				this->buffer_.clear();
+//				this->buffer_.resize(0);
+//				this->size_ = -1;
+//			}
+//
+//			bool is_bye_signal()
+//			{
+//				return this->size_ == -1;
+//			}
 		};
 
 
@@ -190,7 +190,7 @@ namespace dooqu_service
 			virtual void on_error(const int error) = 0;
 
 
-			inline bool alloc_available_buffer(buffer_stream** buffer_alloc);
+			virtual bool alloc_available_buffer(buffer_stream** buffer_alloc);
 
 		public:
 			tcp_client(io_service& ios);

@@ -289,15 +289,15 @@ void game_plugin::begin_update_client(game_client* client, string& server_url, s
     {
         using namespace std::placeholders;
 
-        io_service* ios = &this->game_service_->get_io_service();
-
-        void* http_req_mem = this->game_service_->get_http_request();
-
-        http_request* request = new(http_req_mem)http_request(
-            *ios,
-            server_url,
-            path_url,
-            std::bind(&game_plugin::end_update_client, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, client, (http_request*)http_req_mem));
+//        io_service* ios = &this->game_service_->get_io_service();
+//
+//        void* http_req_mem = this->game_service_->get_http_request();
+//
+//        http_request* request = new(http_req_mem)http_request(
+//            *ios,
+//            server_url,
+//            path_url,
+//            std::bind(&game_plugin::end_update_client, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, client, (http_request*)http_req_mem));
     }
 }
 
@@ -306,7 +306,7 @@ void game_plugin::end_update_client(const boost::system::error_code& err,
                                     const int status_code,
                                     const string& result, game_client* client, http_request* request)
 {
-    this->game_service_->free_http_request(request);
+    //this->game_service_->free_http_request(request);
 
     //如果http请求成功、同时http的返回码是200
     if (err == boost::asio::error::eof && status_code == 200)

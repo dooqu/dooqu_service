@@ -61,6 +61,8 @@
 		<Unit filename="src/net/tcp_server.cpp" />
 		<Unit filename="src/net/tcp_server.h" />
 		<Unit filename="src/net/tick_count.h" />
+		<Unit filename="src/service/async_task.cpp" />
+		<Unit filename="src/service/async_task.h" />
 		<Unit filename="src/service/command.cpp" />
 		<Unit filename="src/service/command.h" />
 		<Unit filename="src/service/command_dispatcher.cpp" />
@@ -78,8 +80,6 @@
 		<Unit filename="src/service/post_monitor.cpp" />
 		<Unit filename="src/service/post_monitor.h" />
 		<Unit filename="src/service/service_error.h" />
-		<Unit filename="src/service/task_timer.cpp" />
-		<Unit filename="src/service/task_timer.h" />
 		<Unit filename="src/util/char_key_op.h" />
 		<Unit filename="src/util/threads_lock_status.cpp" />
 		<Unit filename="src/util/threads_lock_status.h" />

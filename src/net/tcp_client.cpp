@@ -20,14 +20,6 @@ tcp_client::tcp_client(io_service& ios)
 {
     this->p_buffer = &this->buffer[0];
     memset(this->buffer, 0, sizeof(char) * MAX_BUFFER_SIZE);
-
-    //this->send_buffer_sequence_.reserve(MAX_BUFFER_SEQUENCE_SIZE / 2);
-    for(int i = 0; i < 8; i++)
-    {
-        void* vb = malloc(sizeof(buffer_stream));
-        buffer_stream* curr_buffer = new(vb) buffer_stream(MAX_BUFFER_SIZE);
-        this->send_buffer_sequence_.push_back(curr_buffer);
-    }
 }
 
 
@@ -45,7 +37,6 @@ bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
     //如果当前的写入位置的指针指向存在一个可用的send_buffer，那么直接取这个集合；
     if (write_pos_ < this->send_buffer_sequence_.size())
     {
-        //得到当前的send_buffer
         *buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
         this->write_pos_++;
         return true;
@@ -59,11 +50,12 @@ bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
             *buffer_alloc = NULL;
             return false;
         }
-        //void* buffer_mem = boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::malloc();
-        // buffer_stream* curr_buffer = new(buffer_mem) buffer_stream(MAX_BUFFER_SIZE);
-        void* vb = malloc(sizeof(buffer_stream));
-        buffer_stream* curr_buffer = new(vb) buffer_stream(MAX_BUFFER_SIZE);
+
+        void* buffer_mem = memory_pool_malloc<buffer_stream>();//boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::malloc();
+        buffer_stream* curr_buffer = new(buffer_mem) buffer_stream(MAX_BUFFER_SIZE);
         this->send_buffer_sequence_.push_back(curr_buffer);
+
+        //std::cout << "创建buffer_stream at MAIN." << std::endl;
         //将写入指针指向下一个预置位置
         this->write_pos_ = this->send_buffer_sequence_.size() - 1;
         //得到当前的send_buffer/
@@ -107,35 +99,6 @@ void tcp_client::write(const char* format, ...)
     }
 
 
-    //代码到这里 send_buffer已经获取到，下面准备向内填写数据;
-    //int buff_size = 0;
-    //int try_count = MAX_BUFFER_SIZE_DOUBLE_TIMES;
-
-//    do
-//    {
-//        if (try_count < MAX_BUFFER_SIZE_DOUBLE_TIMES)
-//        {
-//            curr_buffer->double_size();
-//        }
-//
-//        va_list arg_ptr;
-//        //va_start(arg_ptr, format);
-//        buff_size = curr_buffer->write(format, arg_ptr);
-//        //va_end(arg_ptr);
-//
-//    }
-//    while ((buff_size == -1 ||
-//            (curr_buffer->size() == curr_buffer->capacity() && *curr_buffer->at(curr_buffer->size() - 1) != 0)) && try_count-- > 0);
-
-
-//    if (buff_size == -1)
-//    {
-//        printf("ERROR: server message queue limited,the message can not be send.\n");
-//        this->write_pos_--;
-//        return;
-//    }
-
-    //如果正在发送的索引为-1，说明空闲
     if (read_pos_ == -1)
     {
         //只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
@@ -144,7 +107,6 @@ void tcp_client::write(const char* format, ...)
                                  std::bind(&tcp_client::send_handle, this, std::placeholders::_1));
         this->is_data_sending_ = true;
     }
-    //printf("END send\n");
 }
 
 ///在发送完毕后，对发送队列中的数据进行处理；
@@ -188,6 +150,7 @@ void tcp_client::on_data_received(const boost::system::error_code& error, size_t
 
 tcp_client::~tcp_client()
 {
+    //std::cout << "~tcp_client at MAIN." << std::endl;
     boost::system::error_code err_code;
     this->t_socket.close(err_code);
     {
@@ -196,13 +159,10 @@ tcp_client::~tcp_client()
 
         for(int i = 0; i < size ; i++)
         {
-//            (*e)->~buffer_stream();
-//            boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::free(*e);
-            buffer_stream* buffer = this->send_buffer_sequence_.at(i);
-            buffer->~buffer_stream();
-            free(buffer);
+            buffer_stream* curr_buffer = this->send_buffer_sequence_.at(i);
+            curr_buffer->~buffer_stream();
+            memory_pool_free<buffer_stream>(curr_buffer);
         }
-
         this->send_buffer_sequence_.clear();
     }
 }

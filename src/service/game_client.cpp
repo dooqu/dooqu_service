@@ -23,7 +23,6 @@ game_client::game_client(io_service& ios) :
 
 game_client::~game_client()
 {
-    //std::cout << "销毁~game_client->" << this->id() << std::endl;
 }
 
 /*

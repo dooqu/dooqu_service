@@ -21,9 +21,6 @@ void tcp_server::create_worker_thread()
     std::thread* worker_thread = new std::thread(std::bind(static_cast<size_t(io_service::*)()>(&io_service::run), &this->io_service_));
     this->threads_status_[worker_thread->get_id()] = new tick_count();
     worker_threads_.push_back(worker_thread);
-
-    //thread_status::instance()->map_status[worker_thread->get_id()] = new std::deque<char*>();
-
     dooqu_service::util::print_success_info("create worker thread {%d}.", worker_thread->get_id());
 }
 
@@ -48,14 +45,14 @@ void tcp_server::start()
         {
             tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), this->port_);
             acceptor.open(endpoint.protocol());
-            //acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
 
             boost::system::error_code error;
             acceptor.bind(endpoint, error);
 
             if(error)
             {
-                std::cout << "server not started, addressbind error:" << error.message() << std::endl;
+                std::cout << "server not started, bind error:" << error.message() << std::endl;
                 return;
             }
             acceptor.listen();
@@ -93,12 +90,12 @@ void tcp_server::stop_accept()
             std::cout << "cancel error:" << error.message() << std::endl;
         }
 
-//        this->acceptor.close(error);
-//
-//        if(error)
-//        {
-//            std::cout << "close error:" << error.message() << std::endl;
-//        }
+        this->acceptor.close(error);
+
+        if(error)
+        {
+            std::cout << "close error:" << error.message() << std::endl;
+        }
 
         this->is_accepting_ = false;
     }
@@ -120,7 +117,6 @@ void tcp_server::stop()
         //信号量，逐步的将事件停止下来， so，要在后面1、delete work；2、thread.join; 这样join阻塞完成之时，其实就是
         //所有线程上的事件都已经执行完毕;
         this->on_stop();
-
         //让所有工作者线程不再空等
         delete this->work_mode_;
 
@@ -137,8 +133,8 @@ void tcp_server::stop()
         this->io_service_.reset();
         this->on_stoped();
 
-        boost::system::error_code error;
-        this->acceptor.close(error);
+//        boost::system::error_code error;
+//        this->acceptor.close(error);
 
         dooqu_service::util::print_success_info("service stoped successfully.");
     }
@@ -177,10 +173,8 @@ void tcp_server::accept_handle(const boost::system::error_code& error, tcp_clien
         }
         else
         {
-            //ios is running
             this->on_destroy_client(client);
         }
-        return;
     }
     else
     {
