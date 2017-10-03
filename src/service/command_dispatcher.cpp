@@ -93,7 +93,7 @@ int command_dispatcher::on_client_data_received(game_client* client, size_t byte
 
 void command_dispatcher::on_client_data(game_client* client, char* data)
 {
-    __lock__(client->commander_mutex_, "command_dispatcher::on_client_data");
+    __lock__(client->commander_mutex_, "command_dispatcher::on_client_data::commander_mutex_");
 
     if(client->available_ == false)
     {

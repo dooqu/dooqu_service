@@ -38,6 +38,10 @@ void game_client::on_data_received(const boost::system::error_code& error, size_
     //std::cout << this->id() << ".on_data_received:" << "bytes_received" << bytes_received << ",result:" << error <<  "thread_id:" << std::this_thread::get_id() << std::endl;
     if (!error)
     {
+        if(this->cmd_dispatcher_ == NULL)
+        {
+            std::cout << "cmd NULL, client:" << this->id() << "error code:" << this->error_code() << "," << this->t_socket.is_open() << std::endl;
+        }
         assert(this->cmd_dispatcher_ != NULL);
         if (this->cmd_dispatcher_ == NULL )
         {
@@ -53,10 +57,11 @@ void game_client::on_data_received(const boost::system::error_code& error, size_
         {
             this->disconnect(error_result);
         }
-        this->tcp_client::on_data_received(error, bytes_received);
+
         this->buffer_pos = next_receive_buffer_pos;
         this->p_buffer = &this->buffer[this->buffer_pos];
         this->read_from_client();
+        this->tcp_client::on_data_received(error, bytes_received);
     }
     else
     {
@@ -78,6 +83,7 @@ void game_client::on_error(const int error)
         this->error_code_ = error;
     }
 
+    assert(this->cmd_dispatcher_ != NULL);
     if (this->cmd_dispatcher_ != NULL)
     {
         this->ios.post(std::bind(&command_dispatcher::dispatch_bye, this->cmd_dispatcher_, this));
@@ -104,8 +110,7 @@ void game_client::fill(char* id, char* name, char* profile)
 
 void game_client::dispatch_data(char* command_data)
 {
-    assert(this->cmd_dispatcher_ != NULL);
-
+    //assert(this->cmd_dispatcher_ != NULL);
     if (this->cmd_dispatcher_ == NULL)
         return;
 

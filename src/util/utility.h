@@ -56,28 +56,29 @@ public:
     }
     ~RAIIInstance()
     {
+         thread_status::instance()->exit(this->message_);
     }
 };
 
-#define __lock__(state, message)    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
-
-
-#define ___lock___(state, message)   std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
-
-//#define __lock__(state, message) \
-//    thread_status::instance()->wait("WAITING->"#message);\
-//    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-//    thread_status::instance()->hold("HOLDING->"#message);\
-//    RAIIInstance name_var_by_line(ra)("DESTROYING->"#message);\
-//    std::this_thread::sleep_for(std::chrono::milliseconds(50));\
+//#define __lock__(state, message)    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
 //
 //
-//#define ___lock___(state, message) \
-//    thread_status::instance()->wait("WAIT->"#message);\
-//    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-//    thread_status::instance()->hold("HOLD->"#message);\
-//    RAIIInstance name_var_by_line(ra)("DESTROY->"#message);\
-//    std::this_thread::sleep_for(std::chrono::milliseconds(60));\
+//#define ___lock___(state, message)   std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
+
+#define __lock__(state, message) \
+    thread_status::instance()->wait("WAITING->"#message);\
+    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
+    thread_status::instance()->hold("HOLDING->"#message);\
+    RAIIInstance name_var_by_line(ra)("DESTROYING->"#message);\
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));\
+
+
+#define ___lock___(state, message) \
+    thread_status::instance()->wait("WAIT->"#message);\
+    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
+    thread_status::instance()->hold("HOLD->"#message);\
+    RAIIInstance name_var_by_line(ra)("DESTROY->"#message);\
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));\
 
 //#define __lock__(state, message) \
 //    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\

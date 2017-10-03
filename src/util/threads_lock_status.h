@@ -5,32 +5,30 @@
 #include <mutex>
 #include <deque>
 
-typedef std::map<std::thread::id, char*> thread_lock_status;
-
-typedef std::map<std::thread::id, std::deque<char*>*> thread_map_status;
+//typedef std::map<std::thread::id, char*> thread_status_;
+typedef std::map<std::thread::id, std::deque<char*>*> thread_lock_stack;
 
 class thread_status
 {
 public:
-    thread_lock_status status_;
-    thread_map_status map_status;
+    //thread_status_map status_map;
+    thread_lock_stack lock_stack;
     static thread_status* _instance ;
-public:
     static thread_status* instance();
 
+    void init(std::thread::id thread_id);
     void log(char* message);
-
     void txtlog(std::thread::id thread_id, char* logcontent);
-
     void wait(char* message);
     void hold(char* message);
     void exit(char* message);
 
     thread_status();
-    thread_lock_status* status();
+    virtual ~thread_status();
+    //thread_status_map* status();
     static thread_status* create_new();
     static void set_instance(thread_status* instance);
-
+    static void destroy();
 };
 
 //extern thread_status::_instance;

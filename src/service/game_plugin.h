@@ -52,7 +52,7 @@ private:
     void remove_client(game_client* client);
     void dispatch_bye(game_client* client);
     void begin_update_client(game_client* client, string& server_url, string& request_path);
-    void end_update_client(const boost::system::error_code& err, const int status_code, const string& result, game_client* client, http_request* request);
+    void end_update_client(const boost::system::error_code& err, const int status_code, const string& result, game_client* client);
     void remove_client_from_plugin(game_client* client);
 
 protected:
@@ -149,4 +149,8 @@ public:
 }
 }
 
+extern "C"
+{
+    void set_thread_status_instance(thread_status* instance);
+}
 #endif

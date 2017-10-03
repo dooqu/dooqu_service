@@ -20,6 +20,7 @@ void tcp_server::create_worker_thread()
 {
     std::thread* worker_thread = new std::thread(std::bind(static_cast<size_t(io_service::*)()>(&io_service::run), &this->io_service_));
     this->threads_status_[worker_thread->get_id()] = new tick_count();
+    thread_status::instance()->init(worker_thread->get_id());
     worker_threads_.push_back(worker_thread);
     dooqu_service::util::print_success_info("create worker thread {%d}.", worker_thread->get_id());
 }

@@ -83,6 +83,7 @@ int game_plugin::auth_client(game_client* client, const std::string& auth_respon
 //2、对game_info的实例进行填充
 int game_plugin::on_auth_client(game_client* client, const  std::string& auth_response_string)
 {
+    //std::cout <<"http response:" <<  auth_response_string << std::endl;
     return service_error::NO_ERROR;
 }
 
@@ -229,7 +230,7 @@ void game_plugin::unload()
 
 int game_plugin::join_client(game_client* client)
 {
-    __lock__(this->clients_lock_, "game_plugin::join_client");
+    __lock__(this->clients_lock_, "game_plugin::join_client::clients_lock_");
 
     int ret = this->on_befor_client_join(client);
 
@@ -289,27 +290,20 @@ void game_plugin::begin_update_client(game_client* client, string& server_url, s
     {
         using namespace std::placeholders;
 
-//        io_service* ios = &this->game_service_->get_io_service();
-//
-//        void* http_req_mem = this->game_service_->get_http_request();
-//
-//        http_request* request = new(http_req_mem)http_request(
-//            *ios,
-//            server_url,
-//            path_url,
-//            std::bind(&game_plugin::end_update_client, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, client, (http_request*)http_req_mem));
+        req_callback f = std::bind(&game_plugin::end_update_client, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, client);
+        this->game_service_->queue_http_request(server_url.c_str(), path_url.c_str(), f);
     }
 }
 
 
 void game_plugin::end_update_client(const boost::system::error_code& err,
                                     const int status_code,
-                                    const string& result, game_client* client, http_request* request)
+                                    const string& result, game_client* client)
 {
     //this->game_service_->free_http_request(request);
-
+    //std::cout << "end_update_client:err=" << err <<", code=" << status_code << std::endl;
     //如果http请求成功、同时http的返回码是200
-    if (err == boost::asio::error::eof && status_code == 200)
+    if (!err && status_code == 200)
     {
         printf("http update client successed.\n");
         this->on_update_offline_client(err, status_code, client);
@@ -327,7 +321,7 @@ void game_plugin::end_update_client(const boost::system::error_code& err,
     }
 
     this->remove_client_from_plugin(client);
-    std::cout << "callback thread id is : " << std::this_thread::get_id() << std::endl;
+    //std::cout << "callback thread id is : " << std::this_thread::get_id() << std::endl;
 }
 
 
@@ -342,6 +336,7 @@ bool game_plugin::need_update_offline_client(game_client* client, string& server
 //如果get_offline_update_url返回true，请重写on_update_offline_client，并根据error_code的值来确定update操作的返回值。
 void game_plugin::on_update_offline_client(const boost::system::error_code& err, const int status_code, game_client* client)
 {
+
 }
 
 
@@ -370,4 +365,12 @@ game_plugin::~game_plugin()
     }
 }
 }
+}
+
+extern "C"
+{
+    void set_thread_status_instance(thread_status* instance)
+    {
+        thread_status::set_instance(instance);
+    }
 }
