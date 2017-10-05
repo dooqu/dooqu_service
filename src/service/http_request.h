@@ -63,7 +63,6 @@ public:
 
     virtual ~http_request()
     {
-        printf("~http_request\n");
     }
 
 private:

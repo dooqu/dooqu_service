@@ -5,7 +5,6 @@
 #include <deque>
 #include <mutex>
 #include "boost/asio.hpp"
-#include "boost/pool/singleton_pool.hpp"
 #include "../util/tick_count.h"
 #include "../util/utility.h"
 
@@ -30,18 +29,10 @@ public:
         this->disposed_ = false;
     }
 
-
     virtual ~task_timer()
     {
-        if(this->disposed_)
-        {
-
-            printf("has disposed:%d\n", this);
-            return;
-        }
-
-        printf("~task_timer\n");
-    };
+        //printf("~task_timer\n");
+    }
 
     bool is_cancel_eanbled()
     {
@@ -52,28 +43,25 @@ public:
 
 class async_task : boost::noncopyable
 {
-
 public:
     async_task(io_service& ios);
     virtual ~async_task();
-    task_timer* queue_task(std::function<void(void)> callback_handle, int millisecs_wait, bool cancel_enabled = false);
+    virtual task_timer* queue_task(std::function<void(void)> callback_handle, int millisecs_wait, bool cancel_enabled = false);
     bool cancel_task(task_timer* timer);
     void cancel_all_task();
 
 protected:
-    io_service& io_service_;
+    io_service& io_service_async_task_;
     //timer池中最小保有的数量，timer_.size > 此数量后，会启动空闲timer检查
     const static int MIN_ACTIVED_TIMER = 50;
     //如timer池中的数量超过{MIN_ACTIVED_TIMER}定义的数量， 并且队列后部的timer空闲时间超过
     //MAX_TIMER_FREE_TICK的值，会被强制回收
     const static int MAX_TIMER_FREE_TICK = 1 * 60 * 1000;
-
     //存放定时器的双向队列
     //越是靠近队列前部的timer越活跃，越是靠近尾部的timer越空闲
     std::deque<task_timer*> free_timers_;
 
     std::set<task_timer*> working_timers_;
-
     //timer队列池的状态锁
     std::recursive_mutex free_timers_mutex_;
 

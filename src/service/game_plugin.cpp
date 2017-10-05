@@ -165,7 +165,7 @@ void game_plugin::on_client_command(game_client* client, command* command)
 
 void game_plugin::on_update_timeout_clients()
 {
-    __lock__(this->clients_lock_, "on_update_timeout_clients");
+    ___lock___(this->clients_lock_, "on_update_timeout_clients");
 
     for (game_client_map::iterator e = this->clients_.begin();
             e != this->clients_.end();
@@ -207,7 +207,7 @@ void game_plugin::unload()
         this->on_unload();
 
         {
-            __lock__(this->clients_lock_, "game_plugin::unload");
+            ___lock___(this->clients_lock_, "game_plugin::unload");
 
             game_client* client = NULL;
             foreach_plugin_client(client, this)
@@ -230,7 +230,7 @@ void game_plugin::unload()
 
 int game_plugin::join_client(game_client* client)
 {
-    __lock__(this->clients_lock_, "game_plugin::join_client::clients_lock_");
+    ___lock___(this->clients_lock_, "game_plugin::join_client::clients_lock_");
 
     int ret = this->on_befor_client_join(client);
 
@@ -255,7 +255,7 @@ int game_plugin::join_client(game_client* client)
 void game_plugin::remove_client_from_plugin(game_client* client)
 {
     {
-        __lock__(this->clients_lock_, "game_plugin::remove_client_from_plugin");
+        ___lock___(this->clients_lock_, "game_plugin::remove_client_from_plugin");
         this->clients_.erase(client->id());
     }
 
@@ -278,9 +278,12 @@ void game_plugin::remove_client(game_client* client)
     else
     {
         this->remove_client_from_plugin(client);
-        //甩给另外一个线程， 因为上游在command_dispatcher已经lock(client->status),这样会形成client->status到clients_->status的连续链， 二在其他地方会有先锁住集合，再锁住个体的顺序，会产生死锁；
-        //this->game_service_->get_io_service().post(boost::bind(&game_plugin::remove_client_from_plugin, this, client));
     }
+}
+
+task_timer* game_plugin::queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled)
+{
+     return this->queue_task(callback_handle, delay_duration, cancel_enabled);
 }
 
 
@@ -300,28 +303,20 @@ void game_plugin::end_update_client(const boost::system::error_code& err,
                                     const int status_code,
                                     const string& result, game_client* client)
 {
-    //this->game_service_->free_http_request(request);
-    //std::cout << "end_update_client:err=" << err <<", code=" << status_code << std::endl;
-    //如果http请求成功、同时http的返回码是200
     if (!err && status_code == 200)
     {
-        printf("http update client successed.\n");
-        this->on_update_offline_client(err, status_code, client);
+        this->on_update_client(client, result);
     }
     else
     {
         printf("http update client failed,retry...\n");
-        //如果http请求没有成功
-        //利用game_zone再发起延时请求；
-        if (this->zone_ != NULL && --client->retry_update_times_ > 0)
+        if (--client->retry_update_times_ > 0)
         {
-            this->zone_->queue_task(std::bind(&game_plugin::remove_client, this, client), 3000);
+            this->queue_task(std::bind(&game_plugin::remove_client, this, client), 3000);
             return;
         }
     }
-
     this->remove_client_from_plugin(client);
-    //std::cout << "callback thread id is : " << std::this_thread::get_id() << std::endl;
 }
 
 
@@ -334,7 +329,7 @@ bool game_plugin::need_update_offline_client(game_client* client, string& server
 
 
 //如果get_offline_update_url返回true，请重写on_update_offline_client，并根据error_code的值来确定update操作的返回值。
-void game_plugin::on_update_offline_client(const boost::system::error_code& err, const int status_code, game_client* client)
+void game_plugin::on_update_client(game_client* client, const string& response_string)
 {
 
 }
@@ -342,7 +337,7 @@ void game_plugin::on_update_offline_client(const boost::system::error_code& err,
 
 void game_plugin::broadcast(char* message, bool asynchronized)
 {
-    __lock__(this->clients_lock_, "game_plugin::broadcast");
+    ___lock___(this->clients_lock_, "game_plugin::broadcast");
 
     game_client* curr_client = NULL;
     foreach_plugin_client(curr_client, this)
@@ -369,8 +364,8 @@ game_plugin::~game_plugin()
 
 extern "C"
 {
-    void set_thread_status_instance(thread_status* instance)
+    void set_thread_status_instance(service_status* instance)
     {
-        thread_status::set_instance(instance);
+        service_status::set_instance(instance);
     }
 }

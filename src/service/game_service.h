@@ -16,6 +16,7 @@
 #include "../util/char_key_op.h"
 #include "game_client.h"
 #include "service_error.h"
+#include "async_task.h"
 #include "http_request.h"
 
 using namespace boost::asio;
@@ -48,7 +49,7 @@ struct http_request_task
 class game_zone;
 class game_plugin;
 
-class game_service : public command_dispatcher, public tcp_server
+class game_service : public command_dispatcher, public async_task, public tcp_server
 {
 public:
     typedef std::map<const char*, game_plugin*, char_key_op> game_plugin_map;

@@ -1,15 +1,12 @@
 ﻿#ifndef UTILITY_H
 #define UTILITY_H
 
-
 #include <cstdio>
 #include <chrono>
 #include <stdarg.h>
 #include <stdlib.h>
-#include "threads_lock_status.h"
 #include "boost/pool/singleton_pool.hpp"
-
-
+#include "service_status.h"
 
 #define RESET   "\033[0m"
 #define BLACK   "\033[30m"      /* Black */
@@ -29,96 +26,18 @@
 #define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
 #define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
 
-
-
 #define concat_var(text1,text2) text1##text2
 #define concat_var_name(text1,text2) concat_var(text1,text2)
 #define name_var_by_line(text) concat_var_name(text,__LINE__)
-//#define __boostlock__(state, message) \
-//	thread_status::log("STAR->"#message);\
-//	decltype(state)::scoped_lock name_var_by_line(lock)(state);\
-//	thread_status::log("END->"#message)
-//
-//#define __lock__(state, message) \
-//	thread_status::log("STAR->"#message);\
-//	std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-//	thread_status::log("END->"#message)
-
-
-
-class RAIIInstance
-{
-public:
-    char* message_;
-    RAIIInstance(char* message) : message_(NULL)
-    {
-        this->message_ = message;
-    }
-    ~RAIIInstance()
-    {
-         thread_status::instance()->exit(this->message_);
-    }
-};
-
-//#define __lock__(state, message)    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
-//
-//
-//#define ___lock___(state, message)   std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
-
-#define __lock__(state, message) \
-    thread_status::instance()->wait("WAITING->"#message);\
+#define ___lock___(state, message)   std::lock_guard<decltype(state)> name_var_by_line(lock)(state);
+#define ___LOCK___(state, message) \
+    service_status::instance()->wait("WAITING->"#message);\
     std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-    thread_status::instance()->hold("HOLDING->"#message);\
-    RAIIInstance name_var_by_line(ra)("DESTROYING->"#message);\
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));\
-
-
-#define ___lock___(state, message) \
-    thread_status::instance()->wait("WAIT->"#message);\
-    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-    thread_status::instance()->hold("HOLD->"#message);\
+    service_status::instance()->hold("HOLDING->"#message);\
     RAIIInstance name_var_by_line(ra)("DESTROY->"#message);\
     std::this_thread::sleep_for(std::chrono::milliseconds(60));\
 
-//#define __lock__(state, message) \
-//    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-//    RAIIInstance name_var_by_line(ra)("DESTROYING->"#message);\
-//    std::this_thread::sleep_for(std::chrono::milliseconds(50));\
-//
-//
-//#define ___lock___(state, message) \
-//    std::lock_guard<decltype(state)> name_var_by_line(lock)(state);\
-//    RAIIInstance name_var_by_line(ra)("DESTROY->"#message);\
-//    std::this_thread::sleep_for(std::chrono::milliseconds(60));\
-
-template<typename TYPE>
-void* memory_pool_malloc()
-{
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::malloc();
-}
-
-template <typename TYPE>
-void memory_pool_free(void* chunk)
-{
-    if(boost::singleton_pool<TYPE, sizeof(TYPE)>::is_from(chunk) == false)
-    {
-        throw "error";
-    }
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::free(chunk);
-}
-
-template <typename TYPE>
-void memory_pool_release()
-{
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::release_memory();
-}
-
-template <typename TYPE>
-void memory_pool_purge()
-{
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::purge_memory();
-}
-
+using namespace dooqu_service::util;
 namespace dooqu_service
 {
 namespace util
@@ -126,6 +45,61 @@ namespace util
 void print_success_info(const char* format, ...);
 void print_error_info(const char* format, ...);
 int random(int a, int b);
+//template<typename TYPE>
+//void* memory_pool_malloc();
+//
+//template <typename TYPE>
+//void memory_pool_free(void* chunk);
+//
+//template <typename TYPE>
+//void memory_pool_release();
+//
+//template <typename TYPE>
+//void memory_pool_purge();
+
+//
+template<typename TYPE>
+void* memory_pool_malloc()
+{
+    //game_client;
+    //task_timer;
+    //http_request_task;
+    //buffer_stream
+
+    //printf("memeory_pool_malloc:(%s)\n", typeid(TYPE).name());
+    return boost::singleton_pool<TYPE, sizeof(TYPE)>::malloc();
+    //return service_status::instance()->memory_pool_malloc<TYPE>();
+}
+
+template <typename TYPE>
+void memory_pool_free(void* chunk)
+{
+    //printf("memeory_pool_free:(%s)\n", typeid(TYPE).name());
+    if(boost::singleton_pool<TYPE, sizeof(TYPE)>::is_from(chunk))
+    {
+        boost::singleton_pool<TYPE, sizeof(TYPE)>::free(chunk);
+    }
+    else
+    {
+        throw "error";
+    }
+    //service_status::instance()->memory_pool_free<TYPE>(chunk);
+}
+
+template <typename TYPE>
+void memory_pool_release()
+{
+    boost::singleton_pool<TYPE, sizeof(TYPE)>::release_memory();
+    //service_status::instance()->memory_pool_release<TYPE>();
+}
+
+template <typename TYPE>
+void memory_pool_purge()
+{
+    boost::singleton_pool<TYPE, sizeof(TYPE)>::purge_memory();
+   // service_status::instance()->memory_pool_purge<TYPE>();
+}
+
 }
 }
 

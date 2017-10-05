@@ -20,6 +20,15 @@ tcp_client::tcp_client(io_service& ios)
 {
     this->p_buffer = &this->buffer[0];
     memset(this->buffer, 0, sizeof(char) * MAX_BUFFER_SIZE);
+
+    for(int i = 0; i < 8; i++)
+    {
+        buffer_stream* bs = buffer_stream::create(MAX_BUFFER_SIZE);
+        if(bs != NULL)
+        {
+            this->send_buffer_sequence_.push_back(bs);
+        }
+    }
 }
 
 
@@ -37,6 +46,7 @@ bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
     //如果当前的写入位置的指针指向存在一个可用的send_buffer，那么直接取这个集合；
     if (write_pos_ < this->send_buffer_sequence_.size())
     {
+        //std::cout <<this << "使用已有的buffer_stream at MAIN:" << this->send_buffer_sequence_.size() << std::endl;
         *buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
         this->write_pos_++;
         return true;
@@ -51,17 +61,18 @@ bool tcp_client::alloc_available_buffer(buffer_stream** buffer_alloc)
             return false;
         }
 
-        void* buffer_mem = memory_pool_malloc<buffer_stream>();//boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::malloc();
-        buffer_stream* curr_buffer = new(buffer_mem) buffer_stream(MAX_BUFFER_SIZE);
+        buffer_stream* curr_buffer = buffer_stream::create(MAX_BUFFER_SIZE);
+        assert(curr_buffer != NULL);
+        if(curr_buffer == NULL)
+            return;
+
         this->send_buffer_sequence_.push_back(curr_buffer);
-
-        //std::cout << "创建buffer_stream at MAIN." << std::endl;
-        //将写入指针指向下一个预置位置
-        this->write_pos_ = this->send_buffer_sequence_.size() - 1;
+        std::cout << this << " 创建buffer_stream " << this->send_buffer_sequence_.size() << std::endl;
         //得到当前的send_buffer/
+        //this->write_pos_ = this->send_buffer_sequence_.size() - 1;
         *buffer_alloc = this->send_buffer_sequence_.at(this->write_pos_);
+        //将写入指针指向下一个预置位置
         this->write_pos_++;
-
         return true;
     }
 }
@@ -75,9 +86,9 @@ void tcp_client::write(char* data)
 
 void tcp_client::write(const char* format, ...)
 {
-    __lock__(this->send_buffer_lock_, "tcp_client::write::send_buffer_lock_");
-
     buffer_stream* curr_buffer = NULL;
+
+    ___lock___(this->send_buffer_lock_, "tcp_client::write::send_buffer_lock_");
     if (this->alloc_available_buffer(&curr_buffer) == false)
     {
         return;
@@ -97,16 +108,17 @@ void tcp_client::write(const char* format, ...)
         }
         break;
     }
-
-
+    //std::cout << "缓冲区为" << curr_buffer->read() << std::endl;
     if (read_pos_ == -1)
     {
         //只要read_pos_ == -1，说明write没有在处理任何数据，说明没有处于发送状态
-        read_pos_++;
+        ++read_pos_;
         boost::asio::async_write(this->t_socket, boost::asio::buffer(curr_buffer->read(), curr_buffer->size()),
                                  std::bind(&tcp_client::send_handle, this, std::placeholders::_1));
         this->is_data_sending_ = true;
     }
+
+    this->send_buffer_lock_.unlock();
 }
 
 ///在发送完毕后，对发送队列中的数据进行处理；
@@ -115,27 +127,25 @@ void tcp_client::write(const char* format, ...)
 ///实现采用一个发送的数据报队列，按数据报进行依次的发送,靠回调来驱动循环发送，直到当次队列中的数据全部发送完毕；
 void tcp_client::send_handle(const boost::system::error_code& error)
 {
+    ___lock___(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
     if (error)
     {
-        __lock__(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
         read_pos_ = -1;
         write_pos_ = 0;
         this->is_data_sending_ = false;
         return;
     }
 
-    __lock__(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
-
-    buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
-    if (read_pos_ >= (write_pos_ - 1))
+    buffer_stream* curr_buffer = NULL;
+    if (++read_pos_ >= write_pos_)
     {
         read_pos_ = -1;
         write_pos_ = 0;
         this->is_data_sending_ = false;
+        return;
     }
     else
     {
-        read_pos_++;
         buffer_stream* curr_buffer = this->send_buffer_sequence_.at(this->read_pos_);
         boost::asio::async_write(this->t_socket, boost::asio::buffer(curr_buffer->read(), curr_buffer->size()),
                                  std::bind(&tcp_client::send_handle, this, std::placeholders::_1));
@@ -154,14 +164,13 @@ tcp_client::~tcp_client()
     boost::system::error_code err_code;
     this->t_socket.close(err_code);
     {
-        __lock__(this->send_buffer_lock_, "tcp_client::~tcp_client::lock");
+        ___lock___(this->send_buffer_lock_, "tcp_client::~tcp_client::send_buffer_lock");
         int size = this->send_buffer_sequence_.size();
 
         for(int i = 0; i < size ; i++)
         {
             buffer_stream* curr_buffer = this->send_buffer_sequence_.at(i);
-            curr_buffer->~buffer_stream();
-            memory_pool_free<buffer_stream>(curr_buffer);
+            buffer_stream::destroy(curr_buffer);
         }
         this->send_buffer_sequence_.clear();
     }

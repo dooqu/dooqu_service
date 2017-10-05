@@ -7,7 +7,7 @@ namespace dooqu_service
 namespace service
 {
 game_service::game_service(unsigned int port) :
-    tcp_server(port), check_timeout_timer(io_service_)
+    tcp_server(port), async_task(this->io_service_), check_timeout_timer(io_service_)
 {
 }
 
@@ -30,7 +30,7 @@ int game_service::load_plugin(game_plugin* game_plugin, char* zone_id, char** er
         return -2;
     }
 
-    __lock__(this->plugins_mutex_, "create_plugin");
+    ___lock___(this->plugins_mutex_, "create_plugin");
 
     game_plugin_map::iterator curr_plugin = this->plugins_.find(game_plugin->game_id());
 
@@ -87,8 +87,7 @@ bool game_service::unload_plugin(game_plugin* plugin, int seconds_for_wait_compl
         return false;
 
     {
-        __lock__(this->plugins_mutex_, "game_service::unload_plugin::plugin_mutex_");
-
+        ___lock___(this->plugins_mutex_, "game_service::unload_plugin::plugin_mutex_");
         if(this->plugins_.erase(plugin->game_id()) <= 0)
             return false;
 
@@ -144,7 +143,7 @@ void game_service::on_start()
     }
 
     {
-        __lock__(this->plugins_mutex_, "game_servcie::on_init::plugin_mutex");
+        ___lock___(this->plugins_mutex_, "game_servcie::on_init::plugin_mutex");
         //加载所有的游戏逻辑
         for (game_plugin_list::iterator curr_game = this->plugin_list_.begin();
                 curr_game != this->plugin_list_.end(); ++curr_game)
@@ -175,11 +174,9 @@ void game_service::on_stop()
 {
     //停止对登录超时的检测
     this->check_timeout_timer.cancel();
-
     //清理临时登录用户的内存资源
     {
-        __lock__(this->clients_mutex_, "game_service::on_stop::client_mutex");
-
+        ___lock___(this->clients_mutex_, "game_service::on_stop::client_mutex");
         for (game_client_map::iterator curr_client = this->clients_.begin();
                 curr_client != this->clients_.end(); ++curr_client)
         {
@@ -189,15 +186,13 @@ void game_service::on_stop()
     }
 
     {
-        __lock__(this->plugins_mutex_, "game_service::on_stop::plugins_mutex");
-        //停止所有的游戏逻辑
+        ___lock___(this->plugins_mutex_, "game_service::on_stop::plugins_mutex");
         for (game_plugin_list::iterator curr_game = this->plugin_list_.begin();
                 curr_game != this->plugin_list_.end(); ++curr_game)
         {
             (*curr_game)->unload();
         }
     }
-
     //boost::this_thread::sleep(boost::posix_time::milliseconds(500));
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     //停止所有的游戏区
@@ -230,7 +225,6 @@ void game_service::on_client_command(game_client* client, command* command)
         client->disconnect(service_error::CONSTANT_REQUEST);
         return;
     }
-
     command_dispatcher::on_client_command(client, command);
 }
 
@@ -240,6 +234,7 @@ tcp_client* game_service::on_create_client()
 {
     //std::cout << "创建game_client at MAIN." << std::endl;
     void* client_mem = memory_pool_malloc<game_client>();//boost::singleton_pool<game_client, sizeof(game_client)>::malloc();
+    assert(client_mem != NULL);
     return new(client_mem) game_client(this->get_io_service());
     //return new game_client(this->get_io_service());
 }
@@ -253,14 +248,13 @@ void game_service::on_client_connected(tcp_client* t_client)
     client->set_command_dispatcher(this);
 
     {
-        __lock__(this->clients_mutex_, "game_service::on_client_join");
+        ___lock___(this->clients_mutex_, "game_service::on_client_join");
         //在登录用户组中注册
         this->clients_.insert(client);
     }//对用户组上锁
 
     client->read_from_client();
     client->active();
-
     //printf("game_client connected.\n");
 }
 
@@ -269,15 +263,14 @@ void game_service::on_client_connected(tcp_client* t_client)
 void game_service::on_client_leave(game_client* client, int leave_code)
 {
     printf("{%s} leave game_service. code={%d}\n", client->id(), leave_code);
-
     client->set_command_dispatcher(NULL);
     {
-        __lock__(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
+        ___lock___(this->clients_mutex_, "game_service::on_client_leave::clients_mutex");
         this->clients_.erase(client);
     }
 
     {
-        __lock__(client->send_buffer_lock_, "game_service::on_client_leave::send_buffer_lock_");
+        ___lock___(client->send_buffer_lock_, "game_service::on_client_leave::send_buffer_lock_");
         if(client->read_pos_ == -1)
         {
             this->on_destroy_client(client);
@@ -286,7 +279,7 @@ void game_service::on_client_leave(game_client* client, int leave_code)
     }
 
     {
-        __lock__(this->destroy_list_mutex_, "game_service::on_client_leave::destroy_list_mutext");
+        ___lock___(this->destroy_list_mutex_, "game_service::on_client_leave::destroy_list_mutext");
         this->client_list_for_destroy_.push_back(client);
         printf("INSERT client to destroy list.\n");
     }
@@ -304,13 +297,11 @@ void game_service::on_destroy_client(tcp_client* t_client)
 
 void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
 {
-    __lock__(this->destroy_list_mutex_, "game_service::on_destroy_clients_in_destroy_list");
-
+    ___lock___(this->destroy_list_mutex_, "game_service::on_destroy_clients_in_destroy_list");
     for(list<game_client*>::iterator e = this->client_list_for_destroy_.begin(); e != this->client_list_for_destroy_.end(); )
     {
         game_client* client = *e;
-
-        std::cout << "destroy one client in destroy list." << std::endl;
+        //std::cout << "destroy one client in destroy list." << std::endl;
         if(force_destroy)
         {
             this->on_destroy_client(client);
@@ -318,7 +309,7 @@ void game_service::on_destroy_clients_in_destroy_list(bool force_destroy)
         }
         else
         {
-            __lock__(client->send_buffer_lock_, "game_service::on_destroy_clients_in_destroy_list::send_buffer_lock");
+            ___lock___(client->send_buffer_lock_, "game_service::on_destroy_clients_in_destroy_list::send_buffer_lock");
             if(client->read_pos_ == -1)
             {
                 this->on_destroy_client(client);
@@ -339,7 +330,7 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
         //如果禁用超时检测，请注释return;
         if(this->clients_.size() > 0)
         {
-            __lock__(this->clients_mutex_, "game_service::on_check_timeout_clients::clients_mutex");
+            ___lock___(this->clients_mutex_, "game_service::on_check_timeout_clients::clients_mutex");
             //对所有用户的active时间进行对比，超过20秒还没有登录动作的用户被装进临时数组
             for (game_client_map::iterator curr_client = this->clients_.begin();
                     curr_client != this->clients_.end(); ++curr_client)
@@ -357,7 +348,7 @@ void game_service::on_check_timeout_clients(const boost::system::error_code &err
 
         if (timeout_count.elapsed() > 60 * 1000)
         {
-            __lock__(this->plugins_mutex_, "game_service::on_check_timeout_clients::plugins_mutex");
+            ___lock___(this->plugins_mutex_, "game_service::on_check_timeout_clients::plugins_mutex");
             for (game_plugin_list::iterator curr_game = this->get_plugins()->begin();
                     curr_game != this->get_plugins()->end();
                     ++curr_game)
@@ -402,8 +393,9 @@ bool game_service::queue_http_request(const char* host, const char* path, req_ca
     }
     else
     {
-        void* task_block = memory_pool_malloc<http_request_task>();
-        http_request_task* req_task = new(task_block) http_request_task(host, path, callback);
+        void* task_chunk = memory_pool_malloc<http_request_task>();
+        assert(task_chunk != NULL);
+        http_request_task* req_task = new(task_chunk) http_request_task(host, path, callback);
         ___lock___(this->task_queue_mutex_, "game_servcie::queue_http_request::task_queue_mutex_");
         this->task_queue_.push(req_task);
     }
@@ -444,7 +436,6 @@ void game_service::queue_http_request_handle(const boost::system::error_code& er
 
 bool game_service::start_http_request(const char* host, const char* path, req_callback callback)
 {
-    //std::cout << "SO start" << std::endl;
     void* req_block = this->malloc_http_request(0);
 
     if(req_block == NULL)
@@ -509,8 +500,8 @@ void game_service::end_auth(const boost::system::error_code& code, const int sta
     int ret = service_error::NO_ERROR;
 
     {
-        __lock__(this->clients_mutex_, "game_service::end_auth::clients_mutex");
         //如果clients_中没有找到client，那么返回，说明client已经销毁了
+        ___lock___(this->clients_mutex_, "game_service::end_auth::clients_mutex");
         if(this->clients_.erase(client) <= 0)
             return;
     }
@@ -615,8 +606,6 @@ game_service::~game_service()
         delete (*curr_zone).second;
     }
     this->zones_.clear();
-
-
     for (thread_status_map::iterator pos_thread_status_pair = this->threads_status_.begin();
             pos_thread_status_pair != this->threads_status_.end();
             ++pos_thread_status_pair)
@@ -625,22 +614,8 @@ game_service::~game_service()
     }
     this->threads_status_.clear();
 
-    //清理未返回的http_request对象
-//    __lock__(this->http_request_mutex_, "~game_servcie::http_request_mutex");
-//    for (std::set<http_request*>::iterator pos_http_request = this->http_request_working_.begin();
-//            pos_http_request != this->http_request_working_.end();)
-//    {
-//        //这里一定要注意写法，因为这里是边遍历、边删除
-//        //pos_http_request++返回一个临时对象， 对临时对象删除，并自动向下指向
-//        this->free_http_request((*pos_http_request++));
-//    }
-
     free(this->request_block_[0]);
     free(this->request_block_[1]);
-//    boost::singleton_pool<game_client, sizeof(game_client)>::purge_memory();
-//    boost::singleton_pool<http_request, sizeof(http_request)>::purge_memory();
-//    boost::singleton_pool<timer, sizeof(timer)>::purge_memory();
-//    boost::singleton_pool<buffer_stream, sizeof(buffer_stream)>::purge_memory();
 }
 }
 }

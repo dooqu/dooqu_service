@@ -28,7 +28,6 @@ typedef std::vector<std::thread*> worker_threads;
 
 class tcp_server : boost::noncopyable
 {
-
 protected:
     friend class tcp_client;
 

@@ -7,7 +7,7 @@ namespace dooqu_service
 	{
 		bool game_zone::LOG_TIMERS_INFO = false;
 
-		game_zone::game_zone(game_service* service, const char* id) : async_task(service->get_io_service())
+		game_zone::game_zone(game_service* service, const char* id)
 		{
 			int n = std::strlen(id);
 			this->id_ = new char[n + 1];

@@ -81,8 +81,9 @@
 		<Unit filename="src/service/post_monitor.h" />
 		<Unit filename="src/service/service_error.h" />
 		<Unit filename="src/util/char_key_op.h" />
+		<Unit filename="src/util/service_status.cpp" />
+		<Unit filename="src/util/service_status.h" />
 		<Unit filename="src/util/threads_lock_status.cpp" />
-		<Unit filename="src/util/threads_lock_status.h" />
 		<Unit filename="src/util/tick_count.h" />
 		<Unit filename="src/util/utility.cpp" />
 		<Unit filename="src/util/utility.h" />

@@ -38,10 +38,6 @@ void game_client::on_data_received(const boost::system::error_code& error, size_
     //std::cout << this->id() << ".on_data_received:" << "bytes_received" << bytes_received << ",result:" << error <<  "thread_id:" << std::this_thread::get_id() << std::endl;
     if (!error)
     {
-        if(this->cmd_dispatcher_ == NULL)
-        {
-            std::cout << "cmd NULL, client:" << this->id() << "error code:" << this->error_code() << "," << this->t_socket.is_open() << std::endl;
-        }
         assert(this->cmd_dispatcher_ != NULL);
         if (this->cmd_dispatcher_ == NULL )
         {
@@ -57,7 +53,6 @@ void game_client::on_data_received(const boost::system::error_code& error, size_
         {
             this->disconnect(error_result);
         }
-
         this->buffer_pos = next_receive_buffer_pos;
         this->p_buffer = &this->buffer[this->buffer_pos];
         this->read_from_client();
@@ -156,7 +151,7 @@ void game_client::set_command_dispatcher(command_dispatcher* dispatcher)
 
 void game_client::disconnect()
 {
-    __lock__(this->commander_mutex_, "game_client::disconnect.commander_mutex");
+    ___lock___(this->commander_mutex_, "game_client::disconnect.commander_mutex");
 
     if (this->available())
     {
@@ -169,13 +164,12 @@ void game_client::disconnect()
 
 void game_client::disconnect(int code)
 {
-    __lock__(this->commander_mutex_, "game_client::disconnect_int.commander_mutex_");
+    ___lock___(this->commander_mutex_, "game_client::disconnect_int.commander_mutex_");
 
     if (this->available())
     {
         this->error_code_ = code;
         //this->write("ERR %d%c", this->error_code_, NULL);        //this->disconnect_when_io_end();
-
         this->disconnect();
     }
 }

@@ -30,16 +30,16 @@ class game_plugin;
 
 //#define make_plugin_handle(handle) (plugin_callback_handle)&handle
 //继承deadline_timer，并按照需求，增加一个标示最后激活的字段。
-class timer : public boost::asio::deadline_timer
-{
-public:
-    tick_count last_actived_time;
-    timer(io_service& ios) : deadline_timer(ios) {}
-    virtual ~timer() {  };
-};
+//class timer : public boost::asio::deadline_timer
+//{
+//public:
+//    tick_count last_actived_time;
+//    timer(io_service& ios) : deadline_timer(ios) {}
+//    virtual ~timer() {  };
+//};
 
 
-class game_zone : public async_task
+class game_zone
 {
     friend class game_service;
 
@@ -83,11 +83,6 @@ protected:
 
     //game_zone是否在线
     bool is_onlined_;
-
-    char* auth_host_;
-
-    char* auth_path_;
-
     //io_service object.
     game_service* game_service_;
 
@@ -103,8 +98,6 @@ public:
 
     game_zone(game_service* service, const char* id);
 
-    game_zone(game_service* service, const char* id, const char* auth_host, const char* auth_path);
-
     //get game_zone's id
     char* get_id()
     {
@@ -116,51 +109,6 @@ public:
     {
         return this->is_onlined_;
     }
-
-    void set_auth_host(const char* host)
-    {
-        if(this->auth_host_ != NULL)
-        {
-            if(strcmp(this->auth_host_, host) == 0)
-                return;
-
-            delete [] this->auth_host_;
-        }
-
-        int strlength = strlen(host);
-        this->auth_host_ = new char[strlength + 1];
-        strncpy(this->auth_host_, host, strlength);
-
-        auth_host_[strlength] = 0;
-    }
-
-    const char* get_auth_host()
-    {
-        return this->auth_host_;
-    }
-
-    void set_auth_path(const char* path)
-    {
-        if(this->auth_path_ != NULL)
-        {
-            if(strcmp(this->auth_path_, path) == 0)
-                return;
-
-            delete [] this->auth_path_;
-        }
-
-        int strlength = strlen(path);
-        this->auth_path_ = new char[strlength + 1];
-        strncpy(this->auth_path_, path, strlength);
-
-        auth_path_[strlength] = 0;
-    }
-
-    const char* get_auth_path()
-    {
-        return this->auth_path_;
-    }
-
     //get io_service object.
     //io_service* get_io_service(){ return &this->game_service_->get_io_service(); }
 

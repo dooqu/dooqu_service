@@ -82,8 +82,6 @@ protected:
         return this->clients_lock_;
     }
 
-
-
     virtual void on_load();
 
     virtual void on_unload();
@@ -110,7 +108,9 @@ protected:
     virtual bool need_update_offline_client(game_client* client, string& server_url, string& request_path);
     //如果当game_client离开game_plugin需要调用http协议的外部地址来更新更新game_client的状态；
     //那么请在此函数返回true，并且正确的赋值server_url和request_path的值；
-    virtual void on_update_offline_client(const boost::system::error_code& err, const int status_code, game_client* client);
+    virtual void on_update_client(game_client* client, const string& response_string);
+
+    task_timer* queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled = false);
 
 public:
 
@@ -151,6 +151,6 @@ public:
 
 extern "C"
 {
-    void set_thread_status_instance(thread_status* instance);
+    void set_thread_status_instance(service_status* instance);
 }
 #endif

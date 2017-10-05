@@ -5,6 +5,8 @@
 #include "service/game_service.h"
 #include "service/game_plugin.h"
 #include "service/async_task.h"
+#include "util/service_status.h"
+#include "util/utility.h"
 
 using namespace dooqu_service;
 using namespace dooqu_service::net;
