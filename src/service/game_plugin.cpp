@@ -100,16 +100,11 @@ int game_plugin::on_befor_client_join(game_client* client)
         return service_error::ARGUMENT_ERROR;
     }
     //防止用户重复登录
-    game_client_map::iterator curr_client = this->clients_.find(client->id());
-
-    if (curr_client == this->clients_.end())
-    {
-        return service_error::NO_ERROR;
-    }
-    else
+    if(this->find_client_nolock(client->id()) != NULL)
     {
         return service_error::CLIENT_HAS_LOGINED;
     }
+    return service_error::NO_ERROR;
 }
 
 
@@ -165,19 +160,14 @@ void game_plugin::on_client_command(game_client* client, command* command)
 
 void game_plugin::on_update_timeout_clients()
 {
-    ___lock___(this->clients_lock_, "on_update_timeout_clients");
-
-    for (game_client_map::iterator e = this->clients_.begin();
-            e != this->clients_.end();
-            ++e)
+    this->for_each_client([this] (game_client* client)
     {
-        game_client* client = (*e).second;
         if (client->actived_time.elapsed() > 60 * 1000)
         {
             int code = dooqu_service::service::service_error::TIME_OUT;
             this->game_service_->get_io_service().post(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, code));// client->disconnect(service_error::TIME_OUT);
         }
-    }
+    });
 }
 
 
@@ -187,7 +177,6 @@ void game_plugin::load()
     {
         this->is_onlined_ = true;
         this->on_load();
-
         //开始按frequence_进行on_run的调用
         this->update_timer_.expires_from_now(boost::posix_time::milliseconds(this->frequence_));
         this->update_timer_.async_wait(std::bind(&game_plugin::on_run, this));
@@ -206,23 +195,16 @@ void game_plugin::unload()
         this->update_timer_.cancel();
         this->on_unload();
 
+        for_each_client([this](game_client* client)
         {
-            ___lock___(this->clients_lock_, "game_plugin::unload");
+            int ret = service_error::SERVER_CLOSEING;
+            this->game_service_->get_io_service().post(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, ret));
+        });
 
-            game_client* client = NULL;
-            foreach_plugin_client(client, this)
-            {
-                int ret = service_error::SERVER_CLOSEING;
-                this->game_service_->get_io_service().post(std::bind(static_cast<void(game_client::*)(int)>(&game_client::disconnect), client, ret));
-                //client->disconnect(service_error::SERVER_CLOSEING);
-            }
-        }
-
-        while(this->clients()->size() > 0)
+        while(this->clients_count() > 0)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-
         print_success_info("plugin {%s} unloaded.", this->game_id());
     }
 }
@@ -281,9 +263,9 @@ void game_plugin::remove_client(game_client* client)
     }
 }
 
-task_timer* game_plugin::queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled)
+async_task::task_timer* game_plugin::queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled)
 {
-     return this->queue_task(callback_handle, delay_duration, cancel_enabled);
+    return this->queue_task(callback_handle, delay_duration, cancel_enabled);
 }
 
 
@@ -337,15 +319,42 @@ void game_plugin::on_update_client(game_client* client, const string& response_s
 
 void game_plugin::broadcast(char* message, bool asynchronized)
 {
-    ___lock___(this->clients_lock_, "game_plugin::broadcast");
-
-    game_client* curr_client = NULL;
-    foreach_plugin_client(curr_client, this)
+    for_each_client([message](game_client* client)
     {
-        curr_client->write(message);
+        client->write(message);
+    });
+}
+
+void game_plugin::for_each_client(std::function<void(game_client*)> client_func)
+{
+    ___lock___(this->clients_lock_, "for_each_client");
+    for(game_client_map::iterator e = this->clients_.begin(); e != this->clients_.end(); ++e)
+    {
+        client_func((*e).second);
     }
 }
 
+bool game_plugin::find_client(const char* client_id, std::function<void(game_client*)> find_func)
+{
+    ___lock___(this->clients_lock_, "find_client");
+    game_client_map::iterator finder = this->clients_.find(client_id);
+    if(finder != this->clients_.end())
+    {
+        find_func((*finder).second);
+        return true;
+    }
+    return false;
+}
+
+game_client* game_plugin::find_client_nolock(const char* client_id)
+{
+    game_client_map::iterator finder = this->clients_.find(client_id);
+    if(finder != this->clients_.end())
+    {
+        return (*finder).second;
+    }
+    return NULL;
+}
 
 game_plugin::~game_plugin()
 {

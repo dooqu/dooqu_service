@@ -160,6 +160,8 @@ void game_service::on_start()
             this->request_pool_[i].push(request_block_[i] + (j * sizeof(http_request)));
         }
     }
+
+    std::cout << "service_status:" << & service_status_ << std::endl;
 }
 
 

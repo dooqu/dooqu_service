@@ -54,6 +54,8 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="src/data/mysql_conn_pool.cpp" />
+		<Unit filename="src/data/mysql_conn_pool.h" />
 		<Unit filename="src/dooqu_service.h" />
 		<Unit filename="src/net/service_error.h" />
 		<Unit filename="src/net/tcp_client.cpp" />
@@ -83,7 +85,6 @@
 		<Unit filename="src/util/char_key_op.h" />
 		<Unit filename="src/util/service_status.cpp" />
 		<Unit filename="src/util/service_status.h" />
-		<Unit filename="src/util/threads_lock_status.cpp" />
 		<Unit filename="src/util/tick_count.h" />
 		<Unit filename="src/util/utility.cpp" />
 		<Unit filename="src/util/utility.h" />

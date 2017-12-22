@@ -99,33 +99,6 @@ void service_status::destroy()
     }
 }
 
-template<typename TYPE>
-void* service_status::memory_pool_malloc()
-{
-    return boost::singleton_pool<TYPE, sizeof(TYPE)>::malloc();
-}
-
-template <typename TYPE>
-void service_status::memory_pool_free(void* chunk)
-{
-    if(boost::singleton_pool<TYPE, sizeof(TYPE)>::is_from(chunk) == false)
-    {
-        throw "error";
-    }
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::free(chunk);
-}
-
-template <typename TYPE>
-void service_status::memory_pool_release()
-{
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::release_memory();
-}
-
-template <typename TYPE>
-void service_status::memory_pool_purge()
-{
-    boost::singleton_pool<TYPE, sizeof(TYPE)>::purge_memory();
-}
 }
 }
 

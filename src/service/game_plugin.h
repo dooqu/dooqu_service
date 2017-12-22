@@ -34,8 +34,8 @@ class game_service;
 //on_create_zone，返回游戏插件需要的game_zone类型,默认为game_zone基类;
 //need_update_offline_client，通过重写该时间，传递返回值true，来决定是否在用户离开后，http形式更新用户数据
 
-#define __lock_plugin_clients__(plugin) std::lock_guard<std::recursive_mutex> __var_clients_lock__(plugin->clients_lock_)
-#define foreach_plugin_client(var_client, plugin) for(game_client_map::iterator e = this->clients_.begin(); ( (e != this->clients_.end())? (var_client = (*e).second, var_client != NULL) : false); ++e)//for(game_client_map::iterator  e = plugin->clients_.begin(); ((e != NULL)? ((e.second != NULL)? (var_client = e.seconds, e !=plugin->clients_.end()) : false) : false); ++e)
+//#define __lock_plugin_clients__(plugin) std::lock_guard<std::recursive_mutex> __var_clients_lock__(plugin->clients_lock_)
+//#define foreach_plugin_client(var_client, plugin) for(game_client_map::iterator e = this->clients_.begin(); ( (e != this->clients_.end())? (var_client = (*e).second, var_client != NULL) : false); ++e)//for(game_client_map::iterator  e = plugin->clients_.begin(); ((e != NULL)? ((e.second != NULL)? (var_client = e.seconds, e !=plugin->clients_.end()) : false) : false); ++e)
 typedef std::map<const char*, const char*, char_key_op> plugin_config_map;
 class game_plugin : public command_dispatcher, boost::noncopyable
 {
@@ -110,7 +110,7 @@ protected:
     //那么请在此函数返回true，并且正确的赋值server_url和request_path的值；
     virtual void on_update_client(game_client* client, const string& response_string);
 
-    task_timer* queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled = false);
+    async_task::task_timer* queue_task(std::function<void(void)> callback_handle, int delay_duration, bool cancel_enabled = false);
 
 public:
 
@@ -129,6 +129,11 @@ public:
         return &this->clients_;
     };
 
+    size_t clients_count()
+    {
+        return this->clients_.size();
+    }
+
     int capacity() const
     {
         return this->capacity_;
@@ -145,6 +150,10 @@ public:
     }
 
     void broadcast(char* message, bool asynchronized = true);
+
+    inline void for_each_client(std::function<void(game_client*)> client_func);
+    inline bool find_client(const char* client_id, std::function<void(game_client*)> client_func);
+    inline game_client* find_client_nolock(const char* client_id);
 };
 }
 }

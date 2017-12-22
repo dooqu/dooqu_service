@@ -4,53 +4,25 @@ namespace dooqu_service
 {
 namespace service
 {
-async_task::async_task(io_service& ios) : io_service_async_task_(ios)
+async_task::async_task(io_service& ios) : task_io_service_(ios)
 {
     //ctor
 }
 
 async_task::~async_task()
 {
-    {
-        ___lock___(this->working_timers_mutex_, "~game_zone::working_timers_mutex");
-        assert(this->working_timers_.size() == 0);
-        for (std::set<task_timer*>::iterator pos_timer = this->working_timers_.begin();
-                pos_timer != this->working_timers_.end();
-                ++pos_timer)
-        {
-            //printf("~async_task working dispose:%d\n", *pos_timer);
-            (*pos_timer)->cancel();
-            (*pos_timer)->~task_timer();
-            memory_pool_free<task_timer>(*pos_timer);
-            //boost::singleton_pool<task_timer, sizeof(task_timer)>::free(*pos_timer);
-        }
-        this->working_timers_.clear();
-    }
-
-    {
-        ___lock___(this->free_timers_mutex_, "~game_zone::free_timers_mutex");
-        int free_timers_size = this->free_timers_.size();
-        printf("free_timers_size is: %d\n", free_timers_size);
-
-        for (int i = 0; i < free_timers_size; ++i)
-        {
-            task_timer* curr_timer = this->free_timers_.at(i);
-            curr_timer->~task_timer();
-            memory_pool_free<task_timer>(curr_timer);
-            //boost::singleton_pool<task_timer, sizeof(task_timer)>::free(curr_timer);
-        }
-        this->free_timers_.clear();
-    }
+    assert(this->working_timers_.size() == 0);
+    memory_pool_purge<task_timer>();
 }
 //启动一个指定延时的回调操作，因为timer对象要频繁的实例化，所以采用deque的结构对timer对象进行池缓冲
 //queue_task会从deque的头部弹出有效的timer对象，用完后，从新放回的头部，这样deque头部的对象即为活跃timer
 //如timer对象池中后部的对象长时间未被使用，说明当前对象被空闲，可以回收。
 //注意：｛如果game_zone所使用的io_service对象被cancel掉，那么用户层所注册的callback_handle是不会被调用的！｝
-task_timer* async_task::queue_task(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled)
+async_task::task_timer* async_task::queue_task(std::function<void(void)> callback_handle, int sleep_duration, bool cancel_enabled)
 {
     if(sleep_duration <= 0)
     {
-        this->io_service_async_task_.post(callback_handle);
+        this->task_io_service_.post(callback_handle);
         return;
     }
 
@@ -73,9 +45,8 @@ task_timer* async_task::queue_task(std::function<void(void)> callback_handle, in
     //如果对象池中无有效的timer对象，再进行实例化
     if (curr_timer_ == NULL)
     {
-        void* timer_mem = memory_pool_malloc<task_timer>();//boost::singleton_pool<task_timer, sizeof(task_timer)>::malloc();
-        assert(timer_mem != NULL);
-        curr_timer_ = new(timer_mem) task_timer(this->io_service_async_task_, cancel_enabled);
+        curr_timer_ = task_timer::create(this->task_io_service_, cancel_enabled);
+        assert(curr_timer_ != NULL);
     }
     //调用操作
     curr_timer_->expires_from_now(boost::posix_time::milliseconds(sleep_duration));
@@ -102,59 +73,18 @@ bool async_task::cancel_task(task_timer* timer)
         return false;
 
     boost::system::error_code err_code;
-    size_t n = timer->cancel(err_code);
-
-//    if(n > 0)
-//    {
-//        {
-//            ___lock___(this->working_timers_mutex_, "game_zone::cancel_handle::working_timers_mutex");
-//            this->working_timers_.erase(timer);
-//        }
-//
-//        timer->~task_timer();
-//        memory_pool_free<task_timer>(timer);
-//        //boost::singleton_pool<task_timer, sizeof(task_timer)>::free(timer);
-//        return true;
-//    }
-    //如果==0， 已经在task_handle那边销毁了
-    return n > 0;
+    return (timer->cancel(err_code));
 }
 
 
 void async_task::cancel_all_task()
 {
-    //std::vector<task_timer*> tasks;
+    ___lock___(this->working_timers_mutex_, "game_zone::cancel_handle::working_timers_mutex");
+    for(std::set<task_timer*>::iterator e = this->working_timers_.begin();
+            e != this->working_timers_.end(); ++ e)
     {
-        ___lock___(this->working_timers_mutex_, "game_zone::cancel_handle::working_timers_mutex");
-        for(std::set<task_timer*>::iterator e = this->working_timers_.begin();
-                e != this->working_timers_.end(); ++ e)
-        {
-            (*e)->cancel();
-            //tasks.push_back(*e);
-        }
-        //this->working_timers_.clear();
+        (*e)->cancel();
     }
-//
-//
-//    {
-//        ___lock___(this->free_timers_mutex_, "game_zone::task_handle::free_timers_mutex");
-//
-//        for(int i = 0; i < tasks.size(); i++)
-//        {
-//            task_timer* curr_free_timer = tasks.at(i);
-//
-//            if(curr_free_timer->is_cancel_eanbled())
-//            {
-//                curr_free_timer->~task_timer();
-//                //boost::singleton_pool<task_timer, sizeof(task_timer)>::free(curr_free_timer);
-//                memory_pool_free<task_timer>(curr_free_timer);
-//            }
-//            else
-//            {
-//                free_timers_.push_back(tasks.at(i));
-//            }
-//        }
-//    }
 
     printf("end cancel all task\n");
 }
@@ -185,14 +115,12 @@ void async_task::task_handle(const boost::system::error_code& error, task_timer*
         {
             task_timer* free_timer = this->free_timers_.back();
             this->free_timers_.pop_back();
-            free_timer->~task_timer();
-            memory_pool_free<task_timer>(free_timer);
+            task_timer::destroy(free_timer);
         }
     }
     else
     {
-        timer_->~task_timer();
-        memory_pool_free<task_timer>(timer_);
+        task_timer::destroy(timer_);
     }
 
     if(service_status::instance()->echo_timers_status)

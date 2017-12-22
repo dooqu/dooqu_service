@@ -57,24 +57,22 @@ int random(int a, int b);
 //template <typename TYPE>
 //void memory_pool_purge();
 
-//
-template<typename TYPE>
-void* memory_pool_malloc()
-{
     //game_client;
     //task_timer;
     //http_request_task;
     //buffer_stream
 
-    //printf("memeory_pool_malloc:(%s)\n", typeid(TYPE).name());
+template<typename TYPE>
+extern void* memory_pool_malloc()
+{   // printf("SO: memeory_pool_malloc:(%s)\n", typeid(TYPE).name());
     return boost::singleton_pool<TYPE, sizeof(TYPE)>::malloc();
     //return service_status::instance()->memory_pool_malloc<TYPE>();
 }
 
 template <typename TYPE>
-void memory_pool_free(void* chunk)
+extern void memory_pool_free(void* chunk)
 {
-    //printf("memeory_pool_free:(%s)\n", typeid(TYPE).name());
+   //printf("SO: memeory_pool_free:(%s)\n", typeid(TYPE).name());
     if(boost::singleton_pool<TYPE, sizeof(TYPE)>::is_from(chunk))
     {
         boost::singleton_pool<TYPE, sizeof(TYPE)>::free(chunk);
@@ -87,21 +85,23 @@ void memory_pool_free(void* chunk)
 }
 
 template <typename TYPE>
-void memory_pool_release()
+extern void memory_pool_release()
 {
     boost::singleton_pool<TYPE, sizeof(TYPE)>::release_memory();
     //service_status::instance()->memory_pool_release<TYPE>();
 }
 
 template <typename TYPE>
-void memory_pool_purge()
+extern void memory_pool_purge()
 {
     boost::singleton_pool<TYPE, sizeof(TYPE)>::purge_memory();
    // service_status::instance()->memory_pool_purge<TYPE>();
 }
 
+
 }
 }
 
+extern service_status service_status_;
 
 #endif // UTILITY_H

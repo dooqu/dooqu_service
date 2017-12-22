@@ -105,6 +105,7 @@ void game_client::fill(char* id, char* name, char* profile)
 
 void game_client::dispatch_data(char* command_data)
 {
+    printf("dispatch_data:%s\n", command_data);
     //assert(this->cmd_dispatcher_ != NULL);
     if (this->cmd_dispatcher_ == NULL)
         return;

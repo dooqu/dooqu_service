@@ -128,6 +128,7 @@ void tcp_client::write(const char* format, ...)
 void tcp_client::send_handle(const boost::system::error_code& error)
 {
     ___lock___(this->send_buffer_lock_, "tcp_client::send_handle::send_buffer_lock_");
+
     if (error)
     {
         read_pos_ = -1;

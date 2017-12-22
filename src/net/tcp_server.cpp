@@ -110,7 +110,6 @@ void tcp_server::stop()
     if (this->is_running_ == true)
     {
         this->is_running_ = false;
-
         //不接受新的client
         this->stop_accept();
         //on_stop很重要，它的目的是让信息以加速度缓慢，直至静止的方式，让plugin、zone中的消息停止下来；
@@ -120,7 +119,6 @@ void tcp_server::stop()
         this->on_stop();
         //让所有工作者线程不再空等
         delete this->work_mode_;
-
         for (int i = 0; i < this->worker_threads_.size(); i++)
         {
             printf("waiting worker thread {%d}", this->worker_threads_.at(i)->get_id());
